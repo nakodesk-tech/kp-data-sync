@@ -1,0 +1,6 @@
+{
+  "name": "KP Data Sync",
+  "description": "School Data Management and Data Collection App with Cloudflare D1/R2 and RBAC for Admins, Cluster Heads, School HMs, and Teachers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
