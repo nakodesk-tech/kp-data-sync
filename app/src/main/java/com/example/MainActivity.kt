@@ -4,6 +4,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
@@ -95,6 +96,7 @@ fun MainApp(
   var showRegistration by remember { mutableStateOf(false) }
   var showSchoolRegistration by remember { mutableStateOf(false) }
   var showAdminRegistration by remember { mutableStateOf(false) }
+  var showLoginExitConfirmation by remember { mutableStateOf(false) }
   var registrationMessage by remember { mutableStateOf<String?>(null) }
 
   val context = androidx.compose.ui.platform.LocalContext.current
@@ -103,6 +105,15 @@ fun MainApp(
     if (registrationMessage != null) {
       delay(3500)
       registrationMessage = null
+    }
+  }
+
+  // Login/root screen also gets explicit Back handling instead of closing immediately.
+  BackHandler(enabled = activeSession == null) {
+    if (showAdminRegistration) {
+      showAdminRegistration = false
+    } else {
+      showLoginExitConfirmation = true
     }
   }
 
@@ -162,6 +173,20 @@ fun MainApp(
         activeSession = it
       },
       onAdminRegistration = { showAdminRegistration = true }
+    )
+  }
+
+  if (showLoginExitConfirmation) {
+    AlertDialog(
+      onDismissRequest = { showLoginExitConfirmation = false },
+      title = { Text("अॅप बंद करायचे आहे का?") },
+      text = { Text("लॉगिन न करता अॅप बंद केले जाईल.") },
+      confirmButton = {
+        TextButton(onClick = { showLoginExitConfirmation = false; onExitApp() }) { Text("बंद करा") }
+      },
+      dismissButton = {
+        TextButton(onClick = { showLoginExitConfirmation = false }) { Text("रद्द करा") }
+      }
     )
   }
 }
