@@ -1,26 +1,10 @@
 package com.example.model
 
 enum class UserRole(val roleName: String, val displayName: String, val description: String) {
-  Admin(
-    roleName = "Admin",
-    displayName = "App Admin",
-    description = "Full administrative authority across system, all clusters, schools, users, and groups."
-  ),
-  Cluster_Head(
-    roleName = "Cluster_Head",
-    displayName = "Cluster Head",
-    description = "Administrative officer for assigned cluster, its schools, and teachers."
-  ),
-  School_HM(
-    roleName = "School_HM",
-    displayName = "School HM",
-    description = "Headmaster/Mistress managing teachers and school-level data collection."
-  ),
-  Teacher(
-    roleName = "Teacher",
-    displayName = "Teacher",
-    description = "Classroom educator submitting daily reports, student data, and communications."
-  )
+  Admin("Admin", "App Admin", "Full administrative authority across system, all clusters, schools, users, and groups."),
+  Cluster_Head("Cluster_Head", "Cluster Head", "Administrative officer for assigned cluster, its schools, and teachers."),
+  School_HM("School_HM", "School HM", "Headmaster/Mistress managing teachers and school-level data collection."),
+  Teacher("Teacher", "Teacher", "Classroom educator submitting daily reports, student data, and communications.")
 }
 
 data class UserSession(
@@ -30,8 +14,10 @@ data class UserSession(
   val role: UserRole,
   val clusterId: String? = null,
   val clusterName: String? = null,
+  val clusterCode: String? = null,
   val schoolId: String? = null,
   val schoolName: String? = null,
+  val schoolCode: String? = null,
   val token: String,
   val status: String = "active"
 )
@@ -71,7 +57,7 @@ data class SyncLog(
   val title: String,
   val subtitle: String,
   val time: String,
-  val iconType: String // report, group, sync
+  val iconType: String
 )
 
 data class InfrastructureStatus(
