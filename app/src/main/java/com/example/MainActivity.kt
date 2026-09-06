@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
 import com.example.ui.DashboardHost
@@ -30,15 +32,47 @@ class MainActivity : ComponentActivity() {
     window.attributes = lp
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(true)
   }
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState); removeSecureFlag(); enableEdgeToEdge()
-    setContent { MyApplicationTheme { Surface(Modifier.fillMaxSize(), color = HighDensityBackground) { MainApp() } } }
-    window.decorView.post { removeSecureFlag() }
+
+  private fun keepSystemBarsVisible() {
+    WindowCompat.getInsetsController(window, window.decorView)
+      .show(WindowInsetsCompat.Type.systemBars())
   }
-  override fun onStart() { super.onStart(); removeSecureFlag() }
-  override fun onResume() { super.onResume(); removeSecureFlag() }
-  override fun onWindowFocusChanged(hasFocus: Boolean) { super.onWindowFocusChanged(hasFocus); removeSecureFlag() }
-  override fun onAttachedToWindow() { super.onAttachedToWindow(); removeSecureFlag() }
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    removeSecureFlag()
+    enableEdgeToEdge()
+    keepSystemBarsVisible()
+    setContent { MyApplicationTheme { Surface(Modifier.fillMaxSize(), color = HighDensityBackground) { MainApp() } } }
+    window.decorView.post {
+      removeSecureFlag()
+      keepSystemBarsVisible()
+    }
+  }
+
+  override fun onStart() {
+    super.onStart()
+    removeSecureFlag()
+    keepSystemBarsVisible()
+  }
+
+  override fun onResume() {
+    super.onResume()
+    removeSecureFlag()
+    keepSystemBarsVisible()
+  }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus) keepSystemBarsVisible()
+    removeSecureFlag()
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    removeSecureFlag()
+    keepSystemBarsVisible()
+  }
 }
 
 @Composable
