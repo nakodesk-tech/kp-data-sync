@@ -8,7 +8,7 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // This marker is intentionally changed with backend deployment fixes so the
 // live Worker can be verified independently of the Android APK version.
-const BACKEND_BUILD = 'admin-bootstrap-diagnostic-v2';
+const BACKEND_BUILD = 'admin-bootstrap-status-fix-v3';
 
 // Enable CORS for Android client & web administration
 app.use('*', async (c, next) => {
