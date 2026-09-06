@@ -4,7 +4,7 @@ compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Public Non-Sensitive Environment Variables
-# Sensitive secrets (JWT_SECRET, SETUP_SECRET) MUST be set via `wrangler secret put`
+# Sensitive secrets (JWT_SECRET, SETUP_SECRET) MUST be set via Cloudflare Secrets
 [vars]
 ENVIRONMENT = "production"
 JWT_EXPIRATION = "7d"
@@ -17,11 +17,11 @@ database_name = "kp-data-sync-db"
 database_id = "e53a68c4-a5c0-4b00-917e-0f741bed8765"
 migrations_dir = "migrations"
 
-# Cloudflare R2 Bucket Binding for Reports and Media Assets
-# Canonical backend binding name: REPORTS_BUCKET
+# Cloudflare R2 Object Storage Binding
+# Must match the Cloudflare Worker binding exactly.
 [[r2_buckets]]
-binding = "REPORTS_BUCKET"
-bucket_name = "kp-data-sync-reports"
+binding = "R2_BUCKET"
+bucket_name = "kp-data-sync"
 
 # Observability and Logging
 [observability]
