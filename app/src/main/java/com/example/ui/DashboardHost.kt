@@ -49,11 +49,7 @@ fun DashboardHost(
   }
 
   BackHandler {
-    if (showUsers) {
-      activateDashboardTab(0)
-    } else {
-      showExitConfirmation = true
-    }
+    if (showUsers) activateDashboardTab(0) else showExitConfirmation = true
   }
 
   Box(Modifier.fillMaxSize()) {
@@ -68,35 +64,28 @@ fun DashboardHost(
         .align(Alignment.BottomCenter)
     ) {
       Spacer(Modifier.height(navigationBarPadding))
-      Box(Modifier.fillMaxWidth().height(64.dp)) {
+      Row(Modifier.fillMaxWidth().height(64.dp)) {
         if (!showUsers) {
+          Spacer(Modifier.weight(1f))
+          Spacer(Modifier.weight(1f))
           Box(
             Modifier
+              .weight(1f)
               .fillMaxHeight()
-              .fillMaxWidth(0.25f)
-              .align(Alignment.Center)
-              .clickable { }
-          )
-          Box(
-            Modifier
-              .fillMaxHeight()
-              .fillMaxWidth(0.25f)
-              .align(Alignment.CenterEnd)
               .clickable { showUsers = true }
           )
+          Spacer(Modifier.weight(1f))
         } else {
-          Row(Modifier.fillMaxSize()) {
-            repeat(4) { index ->
-              Box(
-                Modifier
-                  .weight(1f)
-                  .fillMaxHeight()
-                  .clickable {
-                    if (index == 2) return@clickable
-                    activateDashboardTab(index)
-                  }
-              )
-            }
+          repeat(4) { index ->
+            Box(
+              Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clickable {
+                  if (index == 2) return@clickable
+                  activateDashboardTab(index)
+                }
+            )
           }
         }
       }
