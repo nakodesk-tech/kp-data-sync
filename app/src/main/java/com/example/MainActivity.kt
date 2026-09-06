@@ -108,7 +108,7 @@ fun MainApp(
     }
   }
 
-  BackHandler(enabled = activeSession == null) {
+  BackHandler(enabled = activeSession == null && !showLoginExitConfirmation) {
     if (showAdminRegistration) showAdminRegistration = false
     else showLoginExitConfirmation = true
   }
