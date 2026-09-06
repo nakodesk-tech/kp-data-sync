@@ -112,7 +112,7 @@ fun RemoteLoginScreen(
       }
 
       Spacer(Modifier.height(18.dp))
-      Surface(RoundedCornerShape(20.dp), color = HighDensityPrimaryContainer) {
+      Surface(shape = RoundedCornerShape(20.dp), color = HighDensityPrimaryContainer) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
           Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00C853)))
           Spacer(Modifier.width(6.dp))
