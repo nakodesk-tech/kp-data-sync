@@ -3,12 +3,13 @@ import { cors } from 'hono/cors';
 import { Bindings, Variables } from './types';
 import { authRouter } from './routes/auth';
 import { userRouter } from './routes/user';
+import { schoolRouter } from './routes/schools';
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // This marker is intentionally changed with backend deployment fixes so the
 // live Worker can be verified independently of the Android APK version.
-const BACKEND_BUILD = 'admin-bootstrap-status-fix-v3';
+const BACKEND_BUILD = 'school-registration-v1';
 
 // Enable CORS for Android client & web administration
 app.use('*', async (c, next) => {
@@ -39,6 +40,7 @@ app.get('/', (c) => {
       health: 'GET /',
       login: 'POST /api/auth/login',
       setupAdmin: 'POST /api/auth/setup-admin',
+      registerSchool: 'POST /api/schools/register',
       profile: 'GET /api/user/profile',
       adminOverview: 'GET /api/user/admin/overview'
     }
@@ -48,6 +50,7 @@ app.get('/', (c) => {
 // API Routes
 app.route('/api/auth', authRouter);
 app.route('/api/user', userRouter);
+app.route('/api/schools', schoolRouter);
 
 // 404 Handler
 app.notFound((c) => {
