@@ -28,7 +28,7 @@ app.get('/', (c) => {
     framework: 'Hono.js + Cloudflare Workers',
     storage: {
       d1: 'Cloudflare D1 (SQLite)',
-      r2: 'Cloudflare R2 Object Storage (REPORTS_BUCKET)'
+      r2: 'Cloudflare R2 Object Storage (R2_BUCKET)'
     },
     endpoints: {
       health: 'GET /',
