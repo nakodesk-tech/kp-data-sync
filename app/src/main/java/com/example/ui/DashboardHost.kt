@@ -1,5 +1,6 @@
 package com.example.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -7,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.example.model.UserSession
+import com.example.ui.theme.HighDensityBackground
 
 @Composable
 fun DashboardHost(session: UserSession, onLogout: () -> Unit, onRegisterUser: () -> Unit) {
@@ -26,10 +28,12 @@ fun DashboardHost(session: UserSession, onLogout: () -> Unit, onRegisterUser: ()
     } else {
       // Compose equivalent of fitsSystemWindows: keep the Users overlay away from
       // the visible status/navigation bars while leaving the real Dashboard nav bar
-      // exposed and clickable. This prevents the old tab from showing through.
+      // exposed and clickable. The opaque background prevents the previous tab from
+      // showing through the redesigned Users directory.
       Box(
         Modifier
           .fillMaxSize()
+          .background(HighDensityBackground)
           .systemBarsPadding()
           .padding(bottom = 64.dp)
       ) {
