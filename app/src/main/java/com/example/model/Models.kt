@@ -22,6 +22,21 @@ data class UserSession(
   val status: String = "active"
 )
 
+data class UserRecord(
+  val id: String,
+  val name: String,
+  val email: String,
+  val mobile: String,
+  val role: UserRole,
+  val clusterName: String,
+  val clusterCode: String,
+  val schoolName: String,
+  val schoolCode: String,
+  val address: String,
+  val status: String,
+  val createdAt: String
+)
+
 data class SchoolItem(
   val id: String,
   val name: String,
