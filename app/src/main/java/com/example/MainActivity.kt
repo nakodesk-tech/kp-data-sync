@@ -7,15 +7,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddBusiness
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.model.UserRole
 import com.example.model.UserSession
@@ -26,6 +20,7 @@ import com.example.ui.SchoolRegistrationScreen
 import com.example.ui.UserRegistrationScreen
 import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.MyApplicationTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
   private fun removeSecureFlag() {
@@ -47,9 +42,7 @@ class MainActivity : ComponentActivity() {
         Surface(modifier = Modifier.fillMaxSize(), color = HighDensityBackground) { MainApp() }
       }
     }
-    window.decorView.post {
-      removeSecureFlag()
-    }
+    window.decorView.post { removeSecureFlag() }
   }
 
   override fun onStart() {
@@ -81,6 +74,13 @@ fun MainApp() {
   var showAdminRegistration by remember { mutableStateOf(false) }
   var registrationMessage by remember { mutableStateOf<String?>(null) }
 
+  LaunchedEffect(registrationMessage) {
+    if (registrationMessage != null) {
+      delay(3500)
+      registrationMessage = null
+    }
+  }
+
   activeSession?.let { session ->
     when {
       showRegistration -> {
@@ -111,42 +111,15 @@ fun MainApp() {
               showRegistration = false
               showSchoolRegistration = false
               activeSession = null
+              registrationMessage = null
             }
           )
 
-          if (session.role == UserRole.Admin) {
-            FloatingActionButton(
-              onClick = {
-                registrationMessage = null
-                showSchoolRegistration = true
-              },
-              containerColor = Color(0xFF1565C0),
-              contentColor = Color.White,
-              shape = CircleShape,
-              modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 146.dp)
-            ) {
-              Icon(Icons.Default.AddBusiness, contentDescription = "Register school")
-            }
-          }
-
-          if (session.role != UserRole.Teacher) {
-            FloatingActionButton(
-              onClick = {
-                registrationMessage = null
-                showRegistration = true
-              },
-              containerColor = Color(0xFF00897B),
-              contentColor = Color.White,
-              shape = CircleShape,
-              modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 82.dp)
-            ) {
-              Icon(Icons.Default.PersonAdd, contentDescription = "Register user")
-            }
-          }
-
           registrationMessage?.let { message ->
             Snackbar(
-              modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
             ) { Text(message) }
           }
         }
