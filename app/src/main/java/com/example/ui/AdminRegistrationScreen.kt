@@ -85,7 +85,8 @@ fun AdminRegistrationScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
         keyboardType = KeyboardType.Password,
         password = true,
         maskChar = '*',
-        preventCopy = true
+        preventCopy = true,
+        allowToggleVisibility = false
       )
       AdminField("Password", password, { password = it; error = null }, Icons.Default.Lock, KeyboardType.Password, password = true, maskChar = '*')
       AdminField("Confirm Password", confirmPassword, { confirmPassword = it; error = null }, Icons.Default.Lock, KeyboardType.Password, password = true, maskChar = '*')
@@ -156,7 +157,8 @@ private fun AdminField(
   keyboardType: KeyboardType = KeyboardType.Text,
   password: Boolean = false,
   maskChar: Char = '*',
-  preventCopy: Boolean = false
+  preventCopy: Boolean = false,
+  allowToggleVisibility: Boolean = true
 ) {
   val currentToolbar = LocalTextToolbar.current
   val currentClipboard = LocalClipboardManager.current
@@ -192,6 +194,8 @@ private fun AdminField(
     } else currentClipboard
   }
 
+  var isVisible by remember { mutableStateOf(false) }
+
   CompositionLocalProvider(
     LocalTextToolbar provides secureToolbar,
     LocalClipboardManager provides secureClipboard
@@ -201,8 +205,19 @@ private fun AdminField(
       onValueChange = onValueChange,
       label = { Text(label, fontSize = 12.sp) },
       leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) },
+      trailingIcon = if (password && allowToggleVisibility) {
+        {
+          IconButton(onClick = { isVisible = !isVisible }) {
+            Icon(
+              imageVector = if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+              contentDescription = if (isVisible) "Hide password" else "Show password",
+              tint = Color(0xFF64748B)
+            )
+          }
+        }
+      } else null,
       singleLine = true,
-      visualTransformation = if (password) PasswordVisualTransformation(maskChar) else androidx.compose.ui.text.input.VisualTransformation.None,
+      visualTransformation = if (password && (!isVisible || !allowToggleVisibility)) PasswordVisualTransformation(maskChar) else androidx.compose.ui.text.input.VisualTransformation.None,
       keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
       shape = RoundedCornerShape(14.dp),
       colors = OutlinedTextFieldDefaults.colors(

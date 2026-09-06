@@ -119,10 +119,23 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
 
 @Composable
 private fun RegistrationField(label: String, value: String, onValueChange: (String) -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, keyboardType: KeyboardType = KeyboardType.Text, password: Boolean = false) {
+  var isVisible by remember { mutableStateOf(false) }
   OutlinedTextField(
     value = value, onValueChange = onValueChange, label = { Text(label, fontSize = 12.sp) },
-    leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) }, singleLine = true,
-    visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+    leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) },
+    trailingIcon = if (password) {
+      {
+        IconButton(onClick = { isVisible = !isVisible }) {
+          Icon(
+            imageVector = if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            contentDescription = if (isVisible) "Hide password" else "Show password",
+            tint = Color(0xFF64748B)
+          )
+        }
+      }
+    } else null,
+    singleLine = true,
+    visualTransformation = if (password && !isVisible) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
     keyboardOptions = KeyboardOptions(keyboardType = keyboardType), shape = RoundedCornerShape(14.dp),
     colors = OutlinedTextFieldDefaults.colors(
       focusedTextColor = HighDensityOnBackground,
