@@ -70,7 +70,6 @@ userRouter.post('/register', authMiddleware(['Admin', 'Cluster_Head', 'School_HM
     return c.json({ success: false, error: 'Admin accounts cannot be created through normal registration' }, 400);
   }
 
-  // Enforce the same hierarchy on the server; the UI is never trusted for RBAC.
   if (actor.role === 'Cluster_Head' && !['School_HM', 'Teacher'].includes(requestedRole)) {
     return c.json({ success: false, error: 'Cluster Head can register only School HM or Teacher' }, 403);
   }
@@ -95,7 +94,6 @@ userRouter.post('/register', authMiddleware(['Admin', 'Cluster_Head', 'School_HM
     return c.json({ success: false, error: 'Registration is limited to your assigned school' }, 403);
   }
 
-  // For school-scoped users, validate the school and derive canonical names.
   let resolvedSchoolName = schoolName;
   let resolvedClusterName = clusterName;
   let resolvedClusterCode = clusterCode;
@@ -132,7 +130,7 @@ userRouter.post('/register', authMiddleware(['Admin', 'Cluster_Head', 'School_HM
         id, name, email, mobile_number, password_hash, role,
         cluster_name, cluster_code, school_name, school_code,
         address, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')
     `).bind(
       id, name, email, mobile, passwordHash, requestedRole,
       resolvedClusterName, resolvedClusterCode, resolvedSchoolName, schoolCode,
@@ -154,7 +152,7 @@ userRouter.post('/register', authMiddleware(['Admin', 'Cluster_Head', 'School_HM
       cluster_code: resolvedClusterCode,
       school_name: resolvedSchoolName,
       school_code: schoolCode,
-      status: 'active'
+      status: 'Active'
     }
   }, 201);
 });
