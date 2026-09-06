@@ -18,7 +18,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.example.data.SessionStore
 import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
-import com.example.ui.DashboardScreenV2
+import com.example.ui.DashboardScreen
 import com.example.ui.RemoteLoginScreen
 import com.example.ui.SchoolRegistrationScreen
 import com.example.ui.UserRegistrationScreen
@@ -36,8 +36,7 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun keepSystemBarsVisible() {
-    WindowCompat.getInsetsController(window, window.decorView)
-      .show(WindowInsetsCompat.Type.systemBars())
+    WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,35 +52,13 @@ class MainActivity : ComponentActivity() {
         }
       }
     }
-    window.decorView.post {
-      removeSecureFlag()
-      keepSystemBarsVisible()
-    }
+    window.decorView.post { removeSecureFlag(); keepSystemBarsVisible() }
   }
 
-  override fun onStart() {
-    super.onStart()
-    removeSecureFlag()
-    keepSystemBarsVisible()
-  }
-
-  override fun onResume() {
-    super.onResume()
-    removeSecureFlag()
-    keepSystemBarsVisible()
-  }
-
-  override fun onWindowFocusChanged(hasFocus: Boolean) {
-    super.onWindowFocusChanged(hasFocus)
-    if (hasFocus) keepSystemBarsVisible()
-    removeSecureFlag()
-  }
-
-  override fun onAttachedToWindow() {
-    super.onAttachedToWindow()
-    removeSecureFlag()
-    keepSystemBarsVisible()
-  }
+  override fun onStart() { super.onStart(); removeSecureFlag(); keepSystemBarsVisible() }
+  override fun onResume() { super.onResume(); removeSecureFlag(); keepSystemBarsVisible() }
+  override fun onWindowFocusChanged(hasFocus: Boolean) { super.onWindowFocusChanged(hasFocus); if (hasFocus) keepSystemBarsVisible(); removeSecureFlag() }
+  override fun onAttachedToWindow() { super.onAttachedToWindow(); removeSecureFlag(); keepSystemBarsVisible() }
 }
 
 @Composable
@@ -95,16 +72,12 @@ fun MainApp(initialSession: UserSession? = null, onExitApp: () -> Unit = {}) {
   val context = androidx.compose.ui.platform.LocalContext.current
 
   LaunchedEffect(registrationMessage) {
-    if (registrationMessage != null) {
-      delay(3500)
-      registrationMessage = null
-    }
+    if (registrationMessage != null) { delay(3500); registrationMessage = null }
   }
 
   BackHandler(enabled = activeSession == null && !showLoginExitConfirmation) {
     if (showAdminRegistration) showAdminRegistration = false else showLoginExitConfirmation = true
   }
-
   BackHandler(enabled = activeSession != null && (showRegistration || showSchoolRegistration)) {
     showRegistration = false
     showSchoolRegistration = false
@@ -112,18 +85,10 @@ fun MainApp(initialSession: UserSession? = null, onExitApp: () -> Unit = {}) {
 
   activeSession?.let { session ->
     when {
-      showRegistration -> UserRegistrationScreen(
-        session,
-        { showRegistration = false },
-        { name -> registrationMessage = "$name registered successfully"; showRegistration = false }
-      )
-      showSchoolRegistration -> SchoolRegistrationScreen(
-        session,
-        { showSchoolRegistration = false },
-        { name -> registrationMessage = "$name registered successfully"; showSchoolRegistration = false }
-      )
+      showRegistration -> UserRegistrationScreen(session, { showRegistration = false }, { name -> registrationMessage = "$name registered successfully"; showRegistration = false })
+      showSchoolRegistration -> SchoolRegistrationScreen(session, { showSchoolRegistration = false }, { name -> registrationMessage = "$name registered successfully"; showSchoolRegistration = false })
       else -> Box(Modifier.fillMaxSize()) {
-        DashboardScreenV2(
+        DashboardScreen(
           session = session,
           onLogout = {
             SessionStore.clear(context)
@@ -132,16 +97,11 @@ fun MainApp(initialSession: UserSession? = null, onExitApp: () -> Unit = {}) {
             activeSession = null
             registrationMessage = null
           },
-          onRegisterUser = {
-            registrationMessage = null
-            showRegistration = true
-          },
+          onRegisterUser = { registrationMessage = null; showRegistration = true },
           onExitApp = onExitApp
         )
         registrationMessage?.let { message ->
-          Snackbar(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
-          ) { Text(message) }
+          Snackbar(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 72.dp, start = 16.dp, end = 16.dp)) { Text(message) }
         }
       }
     }
@@ -149,10 +109,7 @@ fun MainApp(initialSession: UserSession? = null, onExitApp: () -> Unit = {}) {
     AdminRegistrationScreen({ showAdminRegistration = false }, { showAdminRegistration = false })
   } else {
     RemoteLoginScreen(
-      onLoginSuccess = {
-        SessionStore.save(context, it)
-        activeSession = it
-      },
+      onLoginSuccess = { SessionStore.save(context, it); activeSession = it },
       onAdminRegistration = { showAdminRegistration = true }
     )
   }
