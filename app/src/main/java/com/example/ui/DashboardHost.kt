@@ -48,7 +48,7 @@ fun DashboardHost(
     }
   }
 
-  BackHandler {
+  BackHandler(enabled = !showExitConfirmation) {
     if (showUsers) activateDashboardTab(0) else showExitConfirmation = true
   }
 
