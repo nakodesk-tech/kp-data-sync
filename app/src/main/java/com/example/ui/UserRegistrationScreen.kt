@@ -2,6 +2,8 @@ package com.example.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +21,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BackendApi
+import com.example.model.SchoolRecord
 import com.example.model.UserRole
 import com.example.model.UserSession
 import com.example.ui.theme.*
@@ -38,12 +41,20 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
   var confirmPassword by remember { mutableStateOf("") }
   var error by remember { mutableStateOf<String?>(null) }
   var loading by remember { mutableStateOf(false) }
+  var schoolLoading by remember { mutableStateOf(false) }
+  var schools by remember { mutableStateOf<List<SchoolRecord>>(emptyList()) }
+  var showSchoolPicker by remember { mutableStateOf(false) }
 
   val allowedRoles = when (session.role) {
     UserRole.Admin -> listOf(UserRole.Cluster_Head, UserRole.School_HM, UserRole.Teacher)
     UserRole.Cluster_Head -> listOf(UserRole.School_HM, UserRole.Teacher)
     UserRole.School_HM -> listOf(UserRole.Teacher)
     UserRole.Teacher -> emptyList()
+  }
+
+  fun loadSchools() {
+    schoolLoading = true
+    BackendApi.getSchools(onSuccess = { schools = it; schoolLoading = false; showSchoolPicker = true }, onError = { schoolLoading = false; error = it })
   }
 
   Box(Modifier.fillMaxSize().background(HighDensityBackground)) {
@@ -64,19 +75,32 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
       }
       Text("SELECT ROLE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF94A3B8), letterSpacing = 1.sp)
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        allowedRoles.forEach { item ->
-          FilterChip(selected = role == item, onClick = { role = item; error = null }, label = { Text(item.displayName, fontSize = 10.sp) })
-        }
+        allowedRoles.forEach { item -> FilterChip(selected = role == item, onClick = { role = item; error = null }, label = { Text(item.displayName, fontSize = 10.sp) }) }
       }
       RegistrationField("Full Name", name, { name = it }, Icons.Default.Person)
       RegistrationField("E-Mail Address", email, { email = it }, Icons.Default.Email, KeyboardType.Email)
       RegistrationField("Mobile Number", mobile, { mobile = it }, Icons.Default.Phone, KeyboardType.Phone)
       RegistrationField("Cluster Name", clusterName, { clusterName = it }, Icons.Default.Hub)
       RegistrationField("Cluster Code", clusterCode, { clusterCode = it }, Icons.Default.Tag)
+
       if (role == UserRole.School_HM || role == UserRole.Teacher) {
+        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), color = Color(0xFFE8F5E9)) {
+          Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.School, contentDescription = null, tint = Color(0xFF2E7D32))
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+              Text("शाळा निवड", fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+              Text("नोंदणीकृत schools table मधून शाळा निवडा", fontSize = 10.sp, color = Color(0xFF33691E))
+            }
+            OutlinedButton(onClick = { loadSchools() }, enabled = !schoolLoading) {
+              Text(if (schoolLoading) "लोड…" else "शाळा निवडा")
+            }
+          }
+        }
         RegistrationField("School Name", schoolName, { schoolName = it }, Icons.Default.AccountBalance)
         RegistrationField("School / UDISE Code", schoolCode, { schoolCode = it }, Icons.Default.Badge, KeyboardType.Number)
       }
+
       RegistrationField("Address", address, { address = it }, Icons.Default.LocationOn)
       RegistrationField("Password", password, { password = it }, Icons.Default.Lock, KeyboardType.Password, true)
       RegistrationField("Confirm Password", confirmPassword, { confirmPassword = it }, Icons.Default.Lock, KeyboardType.Password, true)
@@ -115,6 +139,38 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
       Spacer(Modifier.height(24.dp))
     }
   }
+
+  if (showSchoolPicker) {
+    AlertDialog(
+      onDismissRequest = { showSchoolPicker = false },
+      title = { Text("नोंदणीकृत शाळा निवडा", fontWeight = FontWeight.Bold) },
+      text = {
+        if (schools.isEmpty()) Text("सध्या कोणतीही सक्रिय शाळा उपलब्ध नाही.")
+        else LazyColumn(modifier = Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          items(schools.filter { it.isActive }, key = { it.id }) { school ->
+            Surface(
+              Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), color = Color(0xFFF8FAFC),
+              onClick = {
+                schoolName = school.schoolName
+                schoolCode = school.udiseCode
+                clusterName = school.clusterName
+                clusterCode = school.clusterCode
+                showSchoolPicker = false
+                error = null
+              }
+            ) {
+              Column(Modifier.padding(12.dp)) {
+                Text(school.schoolName, fontWeight = FontWeight.Bold, color = Color(0xFF172033))
+                Text("UDISE: ${school.udiseCode}", fontSize = 11.sp, color = Color(0xFF475569))
+                Text("केंद्र: ${school.clusterName} • ${school.clusterCode}", fontSize = 10.sp, color = Color(0xFF64748B))
+              }
+            }
+          }
+        }
+      },
+      confirmButton = { TextButton(onClick = { showSchoolPicker = false }) { Text("बंद करा") } }
+    )
+  }
 }
 
 @Composable
@@ -123,34 +179,15 @@ private fun RegistrationField(label: String, value: String, onValueChange: (Stri
   OutlinedTextField(
     value = value, onValueChange = onValueChange, label = { Text(label, fontSize = 12.sp) },
     leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) },
-    trailingIcon = if (password) {
-      {
-        IconButton(onClick = { isVisible = !isVisible }) {
-          Icon(
-            imageVector = if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-            contentDescription = if (isVisible) "Hide password" else "Show password",
-            tint = Color(0xFF64748B)
-          )
-        }
-      }
-    } else null,
+    trailingIcon = if (password) ({ IconButton(onClick = { isVisible = !isVisible }) { Icon(if (isVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null, tint = Color(0xFF64748B)) } }) else null,
     singleLine = true,
     visualTransformation = if (password && !isVisible) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
     keyboardOptions = KeyboardOptions(keyboardType = keyboardType), shape = RoundedCornerShape(14.dp),
     colors = OutlinedTextFieldDefaults.colors(
-      focusedTextColor = HighDensityOnBackground,
-      unfocusedTextColor = HighDensityOnBackground,
-      disabledTextColor = Color(0xFF94A3B8),
-      focusedLabelColor = HighDensityPrimary,
-      unfocusedLabelColor = Color(0xFF64748B),
-      cursorColor = HighDensityPrimary,
-      focusedLeadingIconColor = HighDensityPrimary,
-      unfocusedLeadingIconColor = Color(0xFF64748B),
-      focusedBorderColor = HighDensityPrimary,
-      unfocusedBorderColor = Color(0xFFCBD5E1),
-      focusedContainerColor = Color.White,
-      unfocusedContainerColor = Color.White
-    ),
-    modifier = Modifier.fillMaxWidth()
+      focusedTextColor = HighDensityOnBackground, unfocusedTextColor = HighDensityOnBackground,
+      disabledTextColor = Color(0xFF94A3B8), focusedLabelColor = HighDensityPrimary, unfocusedLabelColor = Color(0xFF64748B),
+      cursorColor = HighDensityPrimary, focusedLeadingIconColor = HighDensityPrimary, unfocusedLeadingIconColor = Color(0xFF64748B),
+      focusedBorderColor = HighDensityPrimary, unfocusedBorderColor = Color(0xFFCBD5E1), focusedContainerColor = Color.White, unfocusedContainerColor = Color.White
+    ), modifier = Modifier.fillMaxWidth()
   )
 }
