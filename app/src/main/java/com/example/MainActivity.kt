@@ -108,13 +108,14 @@ fun MainApp(
     }
   }
 
-  // Login/root screen also gets explicit Back handling instead of closing immediately.
   BackHandler(enabled = activeSession == null) {
-    if (showAdminRegistration) {
-      showAdminRegistration = false
-    } else {
-      showLoginExitConfirmation = true
-    }
+    if (showAdminRegistration) showAdminRegistration = false
+    else showLoginExitConfirmation = true
+  }
+
+  BackHandler(enabled = activeSession != null && (showRegistration || showSchoolRegistration)) {
+    showRegistration = false
+    showSchoolRegistration = false
   }
 
   activeSession?.let { session ->
