@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddBusiness
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +22,7 @@ import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
 import com.example.ui.DashboardScreen
 import com.example.ui.RemoteLoginScreen
+import com.example.ui.SchoolRegistrationScreen
 import com.example.ui.UserRegistrationScreen
 import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.MyApplicationTheme
@@ -75,48 +77,78 @@ class MainActivity : ComponentActivity() {
 fun MainApp() {
   var activeSession by remember { mutableStateOf<UserSession?>(null) }
   var showRegistration by remember { mutableStateOf(false) }
+  var showSchoolRegistration by remember { mutableStateOf(false) }
   var showAdminRegistration by remember { mutableStateOf(false) }
   var registrationMessage by remember { mutableStateOf<String?>(null) }
 
   activeSession?.let { session ->
-    if (showRegistration) {
-      UserRegistrationScreen(
-        session = session,
-        onBack = { showRegistration = false },
-        onRegistered = { name ->
-          registrationMessage = "$name registered successfully"
-          showRegistration = false
-        }
-      )
-    } else {
-      Box(modifier = Modifier.fillMaxSize()) {
-        DashboardScreen(
+    when {
+      showRegistration -> {
+        UserRegistrationScreen(
           session = session,
-          onLogout = {
+          onBack = { showRegistration = false },
+          onRegistered = { name ->
+            registrationMessage = "$name registered successfully"
             showRegistration = false
-            activeSession = null
           }
         )
-
-        if (session.role != UserRole.Teacher) {
-          FloatingActionButton(
-            onClick = {
-              registrationMessage = null
-              showRegistration = true
-            },
-            containerColor = Color(0xFF00897B),
-            contentColor = Color.White,
-            shape = CircleShape,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 82.dp)
-          ) {
-            Icon(Icons.Default.PersonAdd, contentDescription = "Register user")
+      }
+      showSchoolRegistration -> {
+        SchoolRegistrationScreen(
+          session = session,
+          onBack = { showSchoolRegistration = false },
+          onRegistered = { name ->
+            registrationMessage = "$name registered successfully"
+            showSchoolRegistration = false
           }
-        }
+        )
+      }
+      else -> {
+        Box(modifier = Modifier.fillMaxSize()) {
+          DashboardScreen(
+            session = session,
+            onLogout = {
+              showRegistration = false
+              showSchoolRegistration = false
+              activeSession = null
+            }
+          )
 
-        registrationMessage?.let { message ->
-          Snackbar(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
-          ) { Text(message) }
+          if (session.role == UserRole.Admin) {
+            FloatingActionButton(
+              onClick = {
+                registrationMessage = null
+                showSchoolRegistration = true
+              },
+              containerColor = Color(0xFF1565C0),
+              contentColor = Color.White,
+              shape = CircleShape,
+              modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 146.dp)
+            ) {
+              Icon(Icons.Default.AddBusiness, contentDescription = "Register school")
+            }
+          }
+
+          if (session.role != UserRole.Teacher) {
+            FloatingActionButton(
+              onClick = {
+                registrationMessage = null
+                showRegistration = true
+              },
+              containerColor = Color(0xFF00897B),
+              contentColor = Color.White,
+              shape = CircleShape,
+              modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 82.dp)
+            ) {
+              Icon(Icons.Default.PersonAdd, contentDescription = "Register user")
+            }
+          }
+
+          registrationMessage?.let { message ->
+            Snackbar(
+              modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+            ) { Text(message) }
+          }
         }
       }
     }
