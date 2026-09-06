@@ -18,7 +18,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.example.data.SessionStore
 import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
-import com.example.ui.DashboardHost
+import com.example.ui.DashboardScreenV2
 import com.example.ui.RemoteLoginScreen
 import com.example.ui.SchoolRegistrationScreen
 import com.example.ui.UserRegistrationScreen
@@ -49,10 +49,7 @@ class MainActivity : ComponentActivity() {
     setContent {
       MyApplicationTheme {
         Surface(Modifier.fillMaxSize(), color = HighDensityBackground) {
-          MainApp(
-            initialSession = restoredSession,
-            onExitApp = { finishAndRemoveTask() }
-          )
+          MainApp(initialSession = restoredSession, onExitApp = { finishAndRemoveTask() })
         }
       }
     }
@@ -88,17 +85,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainApp(
-  initialSession: UserSession? = null,
-  onExitApp: () -> Unit = {}
-) {
+fun MainApp(initialSession: UserSession? = null, onExitApp: () -> Unit = {}) {
   var activeSession by remember(initialSession) { mutableStateOf(initialSession) }
   var showRegistration by remember { mutableStateOf(false) }
   var showSchoolRegistration by remember { mutableStateOf(false) }
   var showAdminRegistration by remember { mutableStateOf(false) }
   var showLoginExitConfirmation by remember { mutableStateOf(false) }
   var registrationMessage by remember { mutableStateOf<String?>(null) }
-
   val context = androidx.compose.ui.platform.LocalContext.current
 
   LaunchedEffect(registrationMessage) {
@@ -109,8 +102,7 @@ fun MainApp(
   }
 
   BackHandler(enabled = activeSession == null && !showLoginExitConfirmation) {
-    if (showAdminRegistration) showAdminRegistration = false
-    else showLoginExitConfirmation = true
+    if (showAdminRegistration) showAdminRegistration = false else showLoginExitConfirmation = true
   }
 
   BackHandler(enabled = activeSession != null && (showRegistration || showSchoolRegistration)) {
@@ -123,21 +115,15 @@ fun MainApp(
       showRegistration -> UserRegistrationScreen(
         session,
         { showRegistration = false },
-        { name ->
-          registrationMessage = "$name registered successfully"
-          showRegistration = false
-        }
+        { name -> registrationMessage = "$name registered successfully"; showRegistration = false }
       )
       showSchoolRegistration -> SchoolRegistrationScreen(
         session,
         { showSchoolRegistration = false },
-        { name ->
-          registrationMessage = "$name registered successfully"
-          showSchoolRegistration = false
-        }
+        { name -> registrationMessage = "$name registered successfully"; showSchoolRegistration = false }
       )
       else -> Box(Modifier.fillMaxSize()) {
-        DashboardHost(
+        DashboardScreenV2(
           session = session,
           onLogout = {
             SessionStore.clear(context)
@@ -154,19 +140,13 @@ fun MainApp(
         )
         registrationMessage?.let { message ->
           Snackbar(
-            Modifier
-              .align(Alignment.BottomCenter)
-              .fillMaxWidth()
-              .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
           ) { Text(message) }
         }
       }
     }
   } ?: if (showAdminRegistration) {
-    AdminRegistrationScreen(
-      { showAdminRegistration = false },
-      { showAdminRegistration = false }
-    )
+    AdminRegistrationScreen({ showAdminRegistration = false }, { showAdminRegistration = false })
   } else {
     RemoteLoginScreen(
       onLoginSuccess = {
@@ -182,12 +162,8 @@ fun MainApp(
       onDismissRequest = { showLoginExitConfirmation = false },
       title = { Text("अॅप बंद करायचे आहे का?") },
       text = { Text("लॉगिन न करता अॅप बंद केले जाईल.") },
-      confirmButton = {
-        TextButton(onClick = { showLoginExitConfirmation = false; onExitApp() }) { Text("बंद करा") }
-      },
-      dismissButton = {
-        TextButton(onClick = { showLoginExitConfirmation = false }) { Text("रद्द करा") }
-      }
+      confirmButton = { TextButton(onClick = { showLoginExitConfirmation = false; onExitApp() }) { Text("बंद करा") } },
+      dismissButton = { TextButton(onClick = { showLoginExitConfirmation = false }) { Text("रद्द करा") } }
     )
   }
 }
