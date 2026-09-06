@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.model.UserRole
 import com.example.model.UserSession
+import com.example.ui.AdminRegistrationScreen
 import com.example.ui.DashboardScreen
 import com.example.ui.RemoteLoginScreen
 import com.example.ui.UserRegistrationScreen
@@ -38,6 +39,7 @@ class MainActivity : ComponentActivity() {
 fun MainApp() {
   var activeSession by remember { mutableStateOf<UserSession?>(null) }
   var showRegistration by remember { mutableStateOf(false) }
+  var showAdminRegistration by remember { mutableStateOf(false) }
   var registrationMessage by remember { mutableStateOf<String?>(null) }
 
   activeSession?.let { session ->
@@ -82,5 +84,15 @@ fun MainApp() {
         }
       }
     }
-  } ?: RemoteLoginScreen(onLoginSuccess = { activeSession = it })
+  } ?: if (showAdminRegistration) {
+    AdminRegistrationScreen(
+      onBack = { showAdminRegistration = false },
+      onRegistered = { showAdminRegistration = false }
+    )
+  } else {
+    RemoteLoginScreen(
+      onLoginSuccess = { activeSession = it },
+      onAdminRegistration = { showAdminRegistration = true }
+    )
+  }
 }
