@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.example.model.UserRole
 import com.example.model.UserSession
 import com.example.ui.DashboardScreen
-import com.example.ui.LoginScreen
+import com.example.ui.RemoteLoginScreen
 import com.example.ui.UserRegistrationScreen
 import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.MyApplicationTheme
@@ -28,9 +28,7 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = HighDensityBackground) {
-          MainApp()
-        }
+        Surface(modifier = Modifier.fillMaxSize(), color = HighDensityBackground) { MainApp() }
       }
     }
   }
@@ -71,9 +69,7 @@ fun MainApp() {
             containerColor = Color(0xFF00897B),
             contentColor = Color.White,
             shape = CircleShape,
-            modifier = Modifier
-              .align(Alignment.BottomEnd)
-              .padding(end = 18.dp, bottom = 82.dp)
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 82.dp)
           ) {
             Icon(Icons.Default.PersonAdd, contentDescription = "Register user")
           }
@@ -81,14 +77,10 @@ fun MainApp() {
 
         registrationMessage?.let { message ->
           Snackbar(
-            modifier = Modifier
-              .align(Alignment.BottomCenter)
-              .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
           ) { Text(message) }
         }
       }
     }
-  } ?: LoginScreen(
-    onLoginSuccess = { loggedInUser -> activeSession = loggedInUser }
-  )
+  } ?: RemoteLoginScreen(onLoginSuccess = { activeSession = it })
 }
