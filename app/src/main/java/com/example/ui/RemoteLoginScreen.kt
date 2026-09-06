@@ -1,6 +1,7 @@
 package com.example.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,10 +33,7 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
   var error by remember { mutableStateOf<String?>(null) }
 
   Box(Modifier.fillMaxSize().background(HighDensityBackground).statusBarsPadding().navigationBarsPadding()) {
-    Column(
-      Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp),
-      horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
       Spacer(Modifier.height(16.dp))
       Box(Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).background(BrandGreen), contentAlignment = Alignment.Center) {
         Icon(Icons.Default.School, contentDescription = "App Logo", tint = Color.White, modifier = Modifier.size(44.dp))
@@ -51,15 +49,10 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
         UserRole.values().forEach { role ->
           val selected = selectedRole == role
           Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(16.dp),
-            color = if (selected) Color(0xFFF3E8FF) else Color.White,
+            modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), color = if (selected) Color(0xFFF3E8FF) else Color.White,
             border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) HighDensityPrimary else Color(0xFFE2E8F0))
           ) {
-            Column(
-              Modifier.fillMaxWidth().padding(vertical = 10.dp).clickableNoRipple { selectedRole = role; error = null },
-              horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(Modifier.fillMaxWidth().clickable { selectedRole = role; error = null }.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
               Icon(
                 when (role) { UserRole.Admin -> Icons.Default.Shield; UserRole.Cluster_Head -> Icons.Default.Hub; UserRole.School_HM -> Icons.Default.AccountBalance; UserRole.Teacher -> Icons.Default.Person },
                 contentDescription = null,
@@ -83,19 +76,9 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
       }
 
       Spacer(Modifier.height(20.dp))
-      OutlinedTextField(
-        value = email, onValueChange = { email = it; error = null },
-        label = { Text("E-Mail Address") }, leadingIcon = { Icon(Icons.Default.Email, null) },
-        singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()
-      )
+      OutlinedTextField(value = email, onValueChange = { email = it; error = null }, label = { Text("E-Mail Address") }, leadingIcon = { Icon(Icons.Default.Email, null) }, singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
       Spacer(Modifier.height(14.dp))
-      OutlinedTextField(
-        value = password, onValueChange = { password = it; error = null },
-        label = { Text("Password") }, leadingIcon = { Icon(Icons.Default.Lock, null) },
-        trailingIcon = { IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } },
-        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()
-      )
+      OutlinedTextField(value = password, onValueChange = { password = it; error = null }, label = { Text("Password") }, leadingIcon = { Icon(Icons.Default.Lock, null) }, trailingIcon = { IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } }, visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
       error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
       Spacer(Modifier.height(20.dp))
       Button(
@@ -108,9 +91,7 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
             onError = { message -> loading = false; error = message }
           )
         },
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
+        modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = BrandGreen)
       ) {
         if (loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
         else Text("LOGIN AS ${selectedRole.displayName.uppercase()}", fontWeight = FontWeight.Bold)
@@ -126,6 +107,3 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
     }
   }
 }
-
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-  this.then(Modifier.clickable(onClick = onClick))
