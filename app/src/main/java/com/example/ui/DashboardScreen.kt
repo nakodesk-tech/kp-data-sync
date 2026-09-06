@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import com.example.data.SyncRepository
 import com.example.model.*
 import com.example.ui.theme.*
@@ -1194,7 +1196,10 @@ private fun GroupChatDialog(
   var messages by remember { mutableStateOf(SyncRepository.getMessagesForGroup(group.id)) }
   var messageInput by remember { mutableStateOf("") }
 
-  Dialog(onDismissRequest = onDismiss) {
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff)
+  ) {
     Surface(
       modifier = Modifier
         .fillMaxWidth()
@@ -1361,7 +1366,10 @@ private fun CreateGroupDialog(
   var groupName by remember { mutableStateOf("") }
   var scope by remember { mutableStateOf("cluster") }
 
-  Dialog(onDismissRequest = onDismiss) {
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff)
+  ) {
     Surface(
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(20.dp),
@@ -1431,7 +1439,10 @@ private fun UploadExcelDialog(
   var isUploading by remember { mutableStateOf(false) }
   var isCompleted by remember { mutableStateOf(false) }
 
-  Dialog(onDismissRequest = onDismiss) {
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff)
+  ) {
     Surface(
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(20.dp),
@@ -1516,7 +1527,10 @@ private fun UploadExcelDialog(
 
 @Composable
 private fun NotificationDialog(onDismiss: () -> Unit) {
-  Dialog(onDismissRequest = onDismiss) {
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOff)
+  ) {
     Surface(
       modifier = Modifier.fillMaxWidth(),
       shape = RoundedCornerShape(20.dp),

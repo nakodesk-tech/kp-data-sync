@@ -1,6 +1,8 @@
 package com.example
 
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,15 +26,48 @@ import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
+  private fun removeSecureFlag() {
+    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    val lp = window.attributes
+    lp.flags = lp.flags and WindowManager.LayoutParams.FLAG_SECURE.inv()
+    window.attributes = lp
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      setRecentsScreenshotEnabled(true)
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+    removeSecureFlag()
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = HighDensityBackground) { MainApp() }
       }
     }
+    window.decorView.post {
+      removeSecureFlag()
+    }
+  }
+
+  override fun onStart() {
+    super.onStart()
+    removeSecureFlag()
+  }
+
+  override fun onResume() {
+    super.onResume()
+    removeSecureFlag()
+  }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    removeSecureFlag()
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    removeSecureFlag()
   }
 }
 
