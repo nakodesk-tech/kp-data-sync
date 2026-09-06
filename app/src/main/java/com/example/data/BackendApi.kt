@@ -14,7 +14,7 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 object BackendApi {
-  private const val BASE_URL = "https://kp-data-sync-backend.workers.dev"
+  private const val BASE_URL = "https://kp-data-sync-api.nakodesk.workers.dev"
   private val client = OkHttpClient.Builder()
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(20, TimeUnit.SECONDS)
