@@ -107,6 +107,23 @@ authRouter.post('/setup-admin', async (c) => {
       return c.json({ success: false, error: 'Server configuration error: SETUP_SECRET is not configured on this server.' }, 500);
     }
 
+    if (!c.env.DB) {
+      console.error('CRITICAL: D1 binding DB is not configured on this Worker.');
+      return c.json({ success: false, error: 'Server configuration error: D1 database binding DB is not configured.' }, 500);
+    }
+
+    // Fail early with a clear deployment/schema error instead of a generic
+    // database exception if the production D1 migration has not been applied.
+    try {
+      await c.env.DB.prepare('SELECT 1 FROM users LIMIT 1').first();
+    } catch (error: any) {
+      console.error('CRITICAL: D1 users table is unavailable:', error);
+      return c.json({
+        success: false,
+        error: 'Server database error: the users table is not available. Please apply the production D1 migrations before creating the first Admin.'
+      }, 500);
+    }
+
     const authHeader = c.req.header('Authorization');
     const customHeader = c.req.header('X-Setup-Secret');
     let providedSecret = '';
@@ -160,6 +177,7 @@ authRouter.post('/setup-admin', async (c) => {
       user: { id: adminId, name: name.trim(), email: normalizedEmail, role: 'Admin', status: 'active' }
     }, 201);
   } catch (error: any) {
+    console.error('Initial Admin bootstrap failed:', error);
     return c.json({ success: false, error: error.message || 'Internal server error during admin bootstrap' }, 500);
   }
 });
