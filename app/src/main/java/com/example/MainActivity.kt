@@ -9,9 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.model.UserRole
 import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
 import com.example.ui.DashboardScreen
@@ -118,6 +118,7 @@ fun MainApp() {
           registrationMessage?.let { message ->
             Snackbar(
               modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
             ) { Text(message) }
