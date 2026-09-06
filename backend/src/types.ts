@@ -21,7 +21,7 @@ export interface UserRow {
   school_name: string | null;
   school_code: string | null;
   address: string | null;
-  status: 'active' | 'inactive' | 'pending';
+  status: 'Active' | 'Inactive';
   fcm_token: string | null;
   created_at: string;
   updated_at: string;
