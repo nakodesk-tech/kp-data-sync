@@ -46,11 +46,8 @@ authRouter.post('/setup-admin', async (c) => {
     stage = 'database binding';
     if (!c.env.DB) return c.json({ success: false, error: 'Server configuration error: D1 database binding DB is not configured.' }, 500);
     stage = 'users table preflight';
-    try {
-      await c.env.DB.prepare('SELECT 1 FROM users LIMIT 1').first();
-    } catch (error: any) {
-      return c.json({ success: false, error: `Database error during users table check: ${error?.message || 'unknown database error'}` }, 500);
-    }
+    try { await c.env.DB.prepare('SELECT 1 FROM users LIMIT 1').first(); }
+    catch (error: any) { return c.json({ success: false, error: `Database error during users table check: ${error?.message || 'unknown database error'}` }, 500); }
     stage = 'setup secret validation';
     const authHeader = c.req.header('Authorization');
     const customHeader = c.req.header('X-Setup-Secret');
@@ -60,43 +57,37 @@ authRouter.post('/setup-admin', async (c) => {
     if (!providedSecret || !constantTimeEqual(providedSecret, serverSetupSecret)) return c.json({ success: false, error: 'Unauthorized: Invalid or missing setup secret' }, 401);
     stage = 'admin count query';
     let adminCountRow;
-    try {
-      adminCountRow = await c.env.DB.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'Admin'").first<{ count: number }>();
-    } catch (error: any) {
-      return c.json({ success: false, error: `Database error during Admin check: ${error?.message || 'unknown database error'}` }, 500);
-    }
+    try { adminCountRow = await c.env.DB.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'Admin'").first<{ count: number }>(); }
+    catch (error: any) { return c.json({ success: false, error: `Database error during Admin check: ${error?.message || 'unknown database error'}` }, 500); }
     if ((adminCountRow?.count || 0) > 0) return c.json({ success: false, error: 'Setup is disabled: An Admin user already exists in the system.' }, 409);
     stage = 'request validation';
-    const { name, email, password } = body;
+    const { name, email, mobile_number, cluster_name, cluster_code, school_name, school_code, address, password } = body;
     if (!name || typeof name !== 'string' || name.trim().length < 2) return c.json({ success: false, error: 'Valid Admin name is required (minimum 2 characters)' }, 400);
     if (!email || typeof email !== 'string') return c.json({ success: false, error: 'Valid Admin email address is required' }, 400);
     const normalizedEmail = email.toLowerCase().trim();
     if (!EMAIL_REGEX.test(normalizedEmail)) return c.json({ success: false, error: 'Please provide a valid email address' }, 400);
+    if (!mobile_number || typeof mobile_number !== 'string' || mobile_number.trim().length < 5) return c.json({ success: false, error: 'Mobile Number is required' }, 400);
+    if (!cluster_name || typeof cluster_name !== 'string' || cluster_name.trim().length < 1) return c.json({ success: false, error: 'Cluster Name is required' }, 400);
+    if (!cluster_code || typeof cluster_code !== 'string' || cluster_code.trim().length < 1) return c.json({ success: false, error: 'Cluster Code is required' }, 400);
+    if (!school_name || typeof school_name !== 'string' || school_name.trim().length < 1) return c.json({ success: false, error: 'School Name is required' }, 400);
+    if (!school_code || typeof school_code !== 'string' || school_code.trim().length < 1) return c.json({ success: false, error: 'School Code is required' }, 400);
+    if (!address || typeof address !== 'string' || address.trim().length < 1) return c.json({ success: false, error: 'Address is required' }, 400);
     if (!password || typeof password !== 'string' || password.length < 8) return c.json({ success: false, error: 'Password must be at least 8 characters long' }, 400);
     stage = 'email duplicate check';
     try {
       const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(normalizedEmail).first<{ id: string }>();
       if (existingUser) return c.json({ success: false, error: 'A user with this email address already exists.' }, 409);
-    } catch (error: any) {
-      return c.json({ success: false, error: `Database error during email check: ${error?.message || 'unknown database error'}` }, 500);
-    }
+    } catch (error: any) { return c.json({ success: false, error: `Database error during email check: ${error?.message || 'unknown database error'}` }, 500); }
     stage = 'password hashing';
     let passwordHash: string;
-    try {
-      passwordHash = await hashPassword(password);
-    } catch (error: any) {
-      return c.json({ success: false, error: `Password hashing failed: ${error?.message || 'unknown error'}` }, 500);
-    }
+    try { passwordHash = await hashPassword(password); }
+    catch (error: any) { return c.json({ success: false, error: `Password hashing failed: ${error?.message || 'unknown error'}` }, 500); }
     stage = 'admin insert';
     const adminId = crypto.randomUUID();
     try {
-      // Production D1 currently has mobile_number as NOT NULL. Admin registration does not collect a mobile number, so store an empty value for compatibility.
-      await c.env.DB.prepare(`INSERT INTO users (id, name, email, mobile_number, password_hash, role, status) VALUES (?, ?, ?, ?, ?, 'Admin', 'active')`).bind(adminId, name.trim(), normalizedEmail, typeof body.mobile_number === 'string' ? body.mobile_number.trim() : '', passwordHash).run();
-    } catch (error: any) {
-      console.error('SETUP_ADMIN_ERROR [admin insert]:', error);
-      return c.json({ success: false, error: `Database error during Admin creation: ${error?.message || 'unknown database error'}` }, 500);
-    }
-    return c.json({ success: true, message: 'Initial Admin user created successfully', user: { id: adminId, name: name.trim(), email: normalizedEmail, role: 'Admin', status: 'active' } }, 201);
+      await c.env.DB.prepare(`INSERT INTO users (id, name, email, mobile_number, password_hash, role, cluster_name, cluster_code, school_name, school_code, address, status) VALUES (?, ?, ?, ?, ?, 'Admin', ?, ?, ?, ?, ?, 'active')`).bind(adminId, name.trim(), normalizedEmail, mobile_number.trim(), passwordHash, cluster_name.trim(), cluster_code.trim(), school_name.trim(), school_code.trim(), address.trim()).run();
+    } catch (error: any) { return c.json({ success: false, error: `Database error during Admin creation: ${error?.message || 'unknown database error'}` }, 500); }
+    return c.json({ success: true, message: 'Initial Admin user created successfully', user: { id: adminId, name: name.trim(), email: normalizedEmail, role: 'Admin', mobile_number: mobile_number.trim(), cluster_name: cluster_name.trim(), cluster_code: cluster_code.trim(), school_name: school_name.trim(), school_code: school_code.trim(), address: address.trim(), status: 'active' } }, 201);
   } catch (error: any) {
     console.error(`SETUP_ADMIN_ERROR [${stage}]:`, error);
     return c.json({ success: false, error: `Admin bootstrap failed at ${stage}: ${error?.message || 'Internal server error'}` }, 500);
