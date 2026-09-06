@@ -24,7 +24,10 @@ import com.example.model.UserSession
 import com.example.ui.theme.*
 
 @Composable
-fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
+fun RemoteLoginScreen(
+  onLoginSuccess: (UserSession) -> Unit,
+  onAdminRegistration: () -> Unit
+) {
   var selectedRole by remember { mutableStateOf(UserRole.Admin) }
   var email by remember { mutableStateOf("admin@kpdatasync.com") }
   var password by remember { mutableStateOf("") }
@@ -96,7 +99,19 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit) {
         if (loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
         else Text("LOGIN AS ${selectedRole.displayName.uppercase()}", fontWeight = FontWeight.Bold)
       }
-      Spacer(Modifier.height(24.dp))
+
+      Spacer(Modifier.height(12.dp))
+      OutlinedButton(
+        onClick = onAdminRegistration,
+        modifier = Modifier.fillMaxWidth().height(46.dp),
+        shape = RoundedCornerShape(14.dp)
+      ) {
+        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text("FIRST-TIME APP ADMIN REGISTRATION", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+      }
+
+      Spacer(Modifier.height(18.dp))
       Surface(RoundedCornerShape(20.dp), color = HighDensityPrimaryContainer) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
           Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00C853)))
