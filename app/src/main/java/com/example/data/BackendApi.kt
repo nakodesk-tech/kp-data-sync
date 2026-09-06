@@ -52,11 +52,16 @@ object BackendApi {
   fun setupInitialAdmin(setupSecret: String, name: String, email: String, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
+        val effectiveSecret = setupSecret.trim().ifBlank {
+          try {
+            com.example.BuildConfig.SETUP_SECRET.takeIf { it.isNotBlank() && it != "YOUR_SETUP_SECRET" } ?: ""
+          } catch (_: Exception) { "" }
+        }
         val json = JSONObject().apply { put("name", name); put("email", email); put("password", password) }
         val response = client.newCall(
           Request.Builder()
             .url("$BASE_URL/api/auth/setup-admin")
-            .addHeader("X-Setup-Secret", setupSecret.trim())
+            .addHeader("X-Setup-Secret", effectiveSecret)
             .post(json.toString().toRequestBody(jsonType))
             .build()
         ).execute()

@@ -12,7 +12,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalTextToolbar
+import androidx.compose.ui.platform.TextToolbar
+import androidx.compose.ui.platform.TextToolbarStatus
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -25,7 +36,12 @@ import com.example.ui.theme.*
 fun AdminRegistrationScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
   var name by remember { mutableStateOf("") }
   var email by remember { mutableStateOf("") }
-  var setupSecret by remember { mutableStateOf("") }
+  val configuredSetupSecret = remember {
+    try {
+      com.example.BuildConfig.SETUP_SECRET.takeIf { it.isNotBlank() && it != "YOUR_SETUP_SECRET" } ?: ""
+    } catch (_: Exception) { "" }
+  }
+  var setupSecret by remember { mutableStateOf(configuredSetupSecret) }
   var password by remember { mutableStateOf("") }
   var confirmPassword by remember { mutableStateOf("") }
   var error by remember { mutableStateOf<String?>(null) }
@@ -61,13 +77,22 @@ fun AdminRegistrationScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
       Spacer(Modifier.height(18.dp))
       AdminField("Full Name", name, { name = it; error = null }, Icons.Default.Person)
       AdminField("E-Mail Address", email, { email = it; error = null }, Icons.Default.Email, KeyboardType.Email)
-      AdminField("Admin Setup Key", setupSecret, { setupSecret = it; error = null }, Icons.Default.Key, KeyboardType.Password, true)
-      AdminField("Password", password, { password = it; error = null }, Icons.Default.Lock, KeyboardType.Password, true)
-      AdminField("Confirm Password", confirmPassword, { confirmPassword = it; error = null }, Icons.Default.Lock, KeyboardType.Password, true)
+      AdminField(
+        label = "Admin Setup Key",
+        value = setupSecret,
+        onValueChange = { setupSecret = it; error = null },
+        icon = Icons.Default.Key,
+        keyboardType = KeyboardType.Password,
+        password = true,
+        maskChar = '*',
+        preventCopy = true
+      )
+      AdminField("Password", password, { password = it; error = null }, Icons.Default.Lock, KeyboardType.Password, password = true, maskChar = '*')
+      AdminField("Confirm Password", confirmPassword, { confirmPassword = it; error = null }, Icons.Default.Lock, KeyboardType.Password, password = true, maskChar = '*')
 
       Spacer(Modifier.height(4.dp))
       Text(
-        "The Admin Setup Key is the secret configured for the backend. It is required only for this first-time bootstrap and is never stored in the users table.",
+        "The Admin Setup Key is encrypted (* format) and protected from copying. It matches the SETUP_SECRET configured for the backend.",
         fontSize = 10.sp, color = Color(0xFF64748B), lineHeight = 14.sp
       )
 
@@ -80,10 +105,11 @@ fun AdminRegistrationScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
       Button(
         enabled = !loading,
         onClick = {
+          val resolvedSecret = setupSecret.trim().ifBlank { configuredSetupSecret }
           error = when {
             name.trim().length < 2 -> "Please enter the full name."
             !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
-            setupSecret.isBlank() -> "Admin Setup Key is required."
+            resolvedSecret.isBlank() -> "Admin Setup Key is required."
             password.length < 8 -> "Password must be at least 8 characters."
             password != confirmPassword -> "Passwords do not match."
             else -> null
@@ -91,7 +117,7 @@ fun AdminRegistrationScreen(onBack: () -> Unit, onRegistered: () -> Unit) {
           if (error == null) {
             loading = true
             BackendApi.setupInitialAdmin(
-              setupSecret = setupSecret,
+              setupSecret = resolvedSecret,
               name = name.trim(),
               email = email.trim(),
               password = password,
@@ -128,31 +154,86 @@ private fun AdminField(
   onValueChange: (String) -> Unit,
   icon: androidx.compose.ui.graphics.vector.ImageVector,
   keyboardType: KeyboardType = KeyboardType.Text,
-  password: Boolean = false
+  password: Boolean = false,
+  maskChar: Char = '*',
+  preventCopy: Boolean = false
 ) {
-  OutlinedTextField(
-    value = value,
-    onValueChange = onValueChange,
-    label = { Text(label, fontSize = 12.sp) },
-    leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) },
-    singleLine = true,
-    visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-    shape = RoundedCornerShape(14.dp),
-    colors = OutlinedTextFieldDefaults.colors(
-      focusedTextColor = HighDensityOnBackground,
-      unfocusedTextColor = HighDensityOnBackground,
-      disabledTextColor = Color(0xFF94A3B8),
-      focusedLabelColor = HighDensityPrimary,
-      unfocusedLabelColor = Color(0xFF64748B),
-      cursorColor = HighDensityPrimary,
-      focusedLeadingIconColor = HighDensityPrimary,
-      unfocusedLeadingIconColor = Color(0xFF64748B),
-      focusedBorderColor = HighDensityPrimary,
-      unfocusedBorderColor = Color(0xFFCBD5E1),
-      focusedContainerColor = Color.White,
-      unfocusedContainerColor = Color.White
-    ),
-    modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)
-  )
+  val currentToolbar = LocalTextToolbar.current
+  val currentClipboard = LocalClipboardManager.current
+
+  val secureToolbar = remember(currentToolbar, preventCopy) {
+    if (preventCopy) {
+      object : TextToolbar {
+        override val status: TextToolbarStatus get() = currentToolbar.status
+        override fun hide() = currentToolbar.hide()
+        override fun showMenu(
+          rect: Rect,
+          onCopyRequested: (() -> Unit)?,
+          onPasteRequested: (() -> Unit)?,
+          onCutRequested: (() -> Unit)?,
+          onSelectAllRequested: (() -> Unit)?
+        ) {
+          // Strictly suppress Copy and Cut actions to prevent copying the secret key
+          currentToolbar.showMenu(rect, null, onPasteRequested, null, onSelectAllRequested)
+        }
+      }
+    } else currentToolbar
+  }
+
+  val secureClipboard = remember(currentClipboard, preventCopy) {
+    if (preventCopy) {
+      object : ClipboardManager {
+        override fun getText(): AnnotatedString? = currentClipboard.getText()
+        override fun setText(annotatedString: AnnotatedString) {
+          // Block setting clipboard data from this field to prevent copying
+        }
+        override fun hasText(): Boolean = currentClipboard.hasText()
+      }
+    } else currentClipboard
+  }
+
+  CompositionLocalProvider(
+    LocalTextToolbar provides secureToolbar,
+    LocalClipboardManager provides secureClipboard
+  ) {
+    OutlinedTextField(
+      value = value,
+      onValueChange = onValueChange,
+      label = { Text(label, fontSize = 12.sp) },
+      leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) },
+      singleLine = true,
+      visualTransformation = if (password) PasswordVisualTransformation(maskChar) else androidx.compose.ui.text.input.VisualTransformation.None,
+      keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+      shape = RoundedCornerShape(14.dp),
+      colors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = HighDensityOnBackground,
+        unfocusedTextColor = HighDensityOnBackground,
+        disabledTextColor = Color(0xFF94A3B8),
+        focusedLabelColor = HighDensityPrimary,
+        unfocusedLabelColor = Color(0xFF64748B),
+        cursorColor = HighDensityPrimary,
+        focusedLeadingIconColor = HighDensityPrimary,
+        unfocusedLeadingIconColor = Color(0xFF64748B),
+        focusedBorderColor = HighDensityPrimary,
+        unfocusedBorderColor = Color(0xFFCBD5E1),
+        focusedContainerColor = Color.White,
+        unfocusedContainerColor = Color.White
+      ),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 5.dp)
+        .then(
+          if (preventCopy) {
+            Modifier.onKeyEvent { keyEvent ->
+              if (keyEvent.isCtrlPressed && (keyEvent.key == Key.C || keyEvent.key == Key.X)) {
+                true // Block Ctrl+C and Ctrl+X
+              } else {
+                false
+              }
+            }
+          } else Modifier
+        )
+    )
+  }
 }
+
