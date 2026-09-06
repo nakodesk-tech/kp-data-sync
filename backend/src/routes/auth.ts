@@ -22,7 +22,7 @@ authRouter.post('/login', async (c) => {
     if (!EMAIL_REGEX.test(normalizedEmail)) return c.json({ success: false, error: 'Please provide a valid email address' }, 400);
     const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(normalizedEmail).first<UserRow>();
     if (!user) return c.json({ success: false, error: 'Invalid email or password' }, 401);
-    if (user.status !== 'active') return c.json({ success: false, error: user.status === 'pending' ? 'User account approval is pending. Please contact the App Admin.' : 'User account is inactive. Please contact the App Admin.' }, 403);
+    if (user.status !== 'Active') return c.json({ success: false, error: 'User account is inactive. Please contact the App Admin.' }, 403);
     if (requestedRole && user.role !== requestedRole) return c.json({ success: false, error: `Account role '${user.role}' does not match requested role '${requestedRole}'` }, 403);
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) return c.json({ success: false, error: 'Invalid email or password' }, 401);
@@ -85,9 +85,9 @@ authRouter.post('/setup-admin', async (c) => {
     stage = 'admin insert';
     const adminId = crypto.randomUUID();
     try {
-      await c.env.DB.prepare(`INSERT INTO users (id, name, email, mobile_number, password_hash, role, cluster_name, cluster_code, school_name, school_code, address, status) VALUES (?, ?, ?, ?, ?, 'Admin', ?, ?, ?, ?, ?, 'active')`).bind(adminId, name.trim(), normalizedEmail, mobile_number.trim(), passwordHash, cluster_name.trim(), cluster_code.trim(), school_name.trim(), school_code.trim(), address.trim()).run();
+      await c.env.DB.prepare(`INSERT INTO users (id, name, email, mobile_number, password_hash, role, cluster_name, cluster_code, school_name, school_code, address, status) VALUES (?, ?, ?, ?, ?, 'Admin', ?, ?, ?, ?, ?, 'Active')`).bind(adminId, name.trim(), normalizedEmail, mobile_number.trim(), passwordHash, cluster_name.trim(), cluster_code.trim(), school_name.trim(), school_code.trim(), address.trim()).run();
     } catch (error: any) { return c.json({ success: false, error: `Database error during Admin creation: ${error?.message || 'unknown database error'}` }, 500); }
-    return c.json({ success: true, message: 'Initial Admin user created successfully', user: { id: adminId, name: name.trim(), email: normalizedEmail, role: 'Admin', mobile_number: mobile_number.trim(), cluster_name: cluster_name.trim(), cluster_code: cluster_code.trim(), school_name: school_name.trim(), school_code: school_code.trim(), address: address.trim(), status: 'active' } }, 201);
+    return c.json({ success: true, message: 'Initial Admin user created successfully', user: { id: adminId, name: name.trim(), email: normalizedEmail, role: 'Admin', mobile_number: mobile_number.trim(), cluster_name: cluster_name.trim(), cluster_code: cluster_code.trim(), school_name: school_name.trim(), school_code: school_code.trim(), address: address.trim(), status: 'Active' } }, 201);
   } catch (error: any) {
     console.error(`SETUP_ADMIN_ERROR [${stage}]:`, error);
     return c.json({ success: false, error: `Admin bootstrap failed at ${stage}: ${error?.message || 'Internal server error'}` }, 500);
