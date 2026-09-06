@@ -68,7 +68,57 @@ object BackendApi {
         if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error", "Registration failed (HTTP ${response.code})")) }; return@launch }
         val created = obj.optJSONObject("data")?.optString("name").orEmpty().ifBlank { name }
         withContext(Dispatchers.Main) { onSuccess(created) }
-      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
+      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) }
+      }
+    }
+  }
+
+  fun registerSchool(
+    token: String,
+    schoolName: String,
+    udiseCode: String,
+    clusterName: String,
+    clusterCode: String,
+    taluka: String,
+    district: String,
+    hmName: String,
+    hmMobile: String,
+    schoolType: String,
+    isActive: Boolean,
+    onSuccess: (String) -> Unit,
+    onError: (String) -> Unit
+  ) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val json = JSONObject().apply {
+          put("school_name", schoolName)
+          put("udise_code", udiseCode)
+          put("cluster_name", clusterName)
+          put("cluster_code", clusterCode)
+          put("taluka", taluka)
+          put("district", district)
+          put("hm_name", hmName)
+          put("hm_mobile", hmMobile)
+          put("school_type", schoolType)
+          put("is_active", isActive)
+        }
+        val response = client.newCall(
+          Request.Builder()
+            .url("$BASE_URL/api/schools/register")
+            .addHeader("Authorization", "Bearer $token")
+            .post(json.toString().toRequestBody(jsonType))
+            .build()
+        ).execute()
+        val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
+        if (!response.isSuccessful || !obj.optBoolean("success", false)) {
+          withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "School registration failed (HTTP ${response.code})" }) }
+          return@launch
+        }
+        val created = obj.optJSONObject("data")?.optString("school_name").orEmpty().ifBlank { schoolName }
+        withContext(Dispatchers.Main) { onSuccess(created) }
+      } catch (error: Exception) {
+        withContext(Dispatchers.Main) { onError(networkError(error)) }
+      }
     }
   }
 
