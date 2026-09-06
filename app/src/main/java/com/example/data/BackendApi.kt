@@ -20,14 +20,9 @@ object BackendApi {
   fun login(email: String, password: String, role: String, onSuccess: (UserSession) -> Unit, onError: (String) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
-        val body = JSONObject().apply {
-          put("email", email)
-          put("password", password)
-          put("role", role)
-        }.toString().toRequestBody(jsonType)
+        val body = JSONObject().apply { put("email", email); put("password", password); put("role", role) }.toString().toRequestBody(jsonType)
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/auth/login").post(body).build()).execute()
-        val raw = response.body?.string().orEmpty()
-        val obj = JSONObject(raw)
+        val obj = JSONObject(response.body?.string().orEmpty())
         if (!response.isSuccessful || !obj.optBoolean("success", false)) {
           withContext(Dispatchers.Main) { onError(obj.optString("error", "Login failed")) }
           return@launch
@@ -37,7 +32,9 @@ object BackendApi {
           id = user.getString("id"), name = user.getString("name"), email = user.getString("email"),
           role = UserRole.values().first { it.roleName == user.getString("role") },
           clusterName = user.optString("cluster_name").ifBlank { null },
+          clusterCode = user.optString("cluster_code").ifBlank { null },
           schoolName = user.optString("school_name").ifBlank { null },
+          schoolCode = user.optString("school_code").ifBlank { null },
           token = obj.getString("token"), status = user.optString("status", "active")
         )
         withContext(Dispatchers.Main) { onSuccess(session) }
@@ -59,12 +56,8 @@ object BackendApi {
           if (schoolCode != null) put("school_code", schoolCode)
           if (address != null) put("address", address)
         }
-        val response = client.newCall(
-          Request.Builder().url("$BASE_URL/api/user/register").addHeader("Authorization", "Bearer $token")
-            .post(json.toString().toRequestBody(jsonType)).build()
-        ).execute()
-        val raw = response.body?.string().orEmpty()
-        val obj = JSONObject(raw)
+        val response = client.newCall(Request.Builder().url("$BASE_URL/api/user/register").addHeader("Authorization", "Bearer $token").post(json.toString().toRequestBody(jsonType)).build()).execute()
+        val obj = JSONObject(response.body?.string().orEmpty())
         if (!response.isSuccessful || !obj.optBoolean("success", false)) {
           withContext(Dispatchers.Main) { onError(obj.optString("error", "Registration failed")) }
           return@launch
