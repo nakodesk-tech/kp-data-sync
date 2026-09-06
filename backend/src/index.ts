@@ -6,6 +6,10 @@ import { userRouter } from './routes/user';
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+// This marker is intentionally changed with backend deployment fixes so the
+// live Worker can be verified independently of the Android APK version.
+const BACKEND_BUILD = 'admin-bootstrap-diagnostic-v2';
+
 // Enable CORS for Android client & web administration
 app.use('*', async (c, next) => {
   const allowedOrigin = c.env.CORS_ORIGIN || '*';
@@ -25,6 +29,7 @@ app.get('/', (c) => {
     status: 'online',
     app: 'KP Data Sync Backend',
     version: '1.0.0',
+    build: BACKEND_BUILD,
     framework: 'Hono.js + Cloudflare Workers',
     storage: {
       d1: 'Cloudflare D1 (SQLite)',
