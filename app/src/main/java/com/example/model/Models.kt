@@ -32,6 +32,23 @@ data class SchoolItem(
   val lastSyncTime: String
 )
 
+data class SchoolRecord(
+  val id: String,
+  val schoolName: String,
+  val udiseCode: String,
+  val clusterName: String,
+  val clusterCode: String,
+  val taluka: String,
+  val district: String,
+  val hmName: String,
+  val hmMobile: String,
+  val schoolType: String,
+  val isActive: Boolean
+)
+
+/** Type marker used to select the live Schools management UI instead of the old demo-list overload. */
+class SchoolDirectorySeed(private val items: List<SchoolItem> = emptyList()) : List<SchoolItem> by items
+
 data class ChatGroup(
   val id: String,
   val name: String,
