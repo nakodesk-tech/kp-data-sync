@@ -11,10 +11,15 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 object BackendApi {
   private const val BASE_URL = "https://kp-data-sync-backend.workers.dev"
-  private val client = OkHttpClient()
+  private val client = OkHttpClient.Builder()
+    .connectTimeout(15, TimeUnit.SECONDS)
+    .readTimeout(20, TimeUnit.SECONDS)
+    .writeTimeout(20, TimeUnit.SECONDS)
+    .build()
   private val jsonType = "application/json; charset=utf-8".toMediaType()
 
   fun login(email: String, password: String, role: String, onSuccess: (UserSession) -> Unit, onError: (String) -> Unit) {
@@ -24,7 +29,7 @@ object BackendApi {
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/auth/login").post(body).build()).execute()
         val obj = JSONObject(response.body?.string().orEmpty())
         if (!response.isSuccessful || !obj.optBoolean("success", false)) {
-          withContext(Dispatchers.Main) { onError(obj.optString("error", "Login failed")) }
+          withContext(Dispatchers.Main) { onError(obj.optString("error", "Login failed (HTTP ${response.code})")) }
           return@launch
         }
         val user = obj.getJSONObject("user")
@@ -38,8 +43,8 @@ object BackendApi {
           token = obj.getString("token"), status = user.optString("status", "active")
         )
         withContext(Dispatchers.Main) { onSuccess(session) }
-      } catch (_: Exception) {
-        withContext(Dispatchers.Main) { onError("Unable to reach the server. Please check your internet connection.") }
+      } catch (error: Exception) {
+        withContext(Dispatchers.Main) { onError(networkError(error)) }
       }
     }
   }
@@ -47,19 +52,25 @@ object BackendApi {
   fun setupInitialAdmin(setupSecret: String, name: String, email: String, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
-        val json = JSONObject().apply { put("setup_secret", setupSecret); put("name", name); put("email", email); put("password", password) }
+        val json = JSONObject().apply { put("name", name); put("email", email); put("password", password) }
         val response = client.newCall(
-          Request.Builder().url("$BASE_URL/api/auth/setup-admin").post(json.toString().toRequestBody(jsonType)).build()
+          Request.Builder()
+            .url("$BASE_URL/api/auth/setup-admin")
+            .addHeader("X-Setup-Secret", setupSecret.trim())
+            .post(json.toString().toRequestBody(jsonType))
+            .build()
         ).execute()
-        val obj = JSONObject(response.body?.string().orEmpty())
+        val raw = response.body?.string().orEmpty()
+        val obj = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
         if (!response.isSuccessful || !obj.optBoolean("success", false)) {
-          withContext(Dispatchers.Main) { onError(obj.optString("error", "Admin registration failed")) }
+          val serverMessage = obj.optString("error").ifBlank { "Admin registration failed (HTTP ${response.code})" }
+          withContext(Dispatchers.Main) { onError(serverMessage) }
           return@launch
         }
         val created = obj.optJSONObject("user")?.optString("name").orEmpty().ifBlank { name }
         withContext(Dispatchers.Main) { onSuccess(created) }
-      } catch (_: Exception) {
-        withContext(Dispatchers.Main) { onError("Unable to reach the server. Please try again.") }
+      } catch (error: Exception) {
+        withContext(Dispatchers.Main) { onError(networkError(error)) }
       }
     }
   }
@@ -79,14 +90,23 @@ object BackendApi {
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/user/register").addHeader("Authorization", "Bearer $token").post(json.toString().toRequestBody(jsonType)).build()).execute()
         val obj = JSONObject(response.body?.string().orEmpty())
         if (!response.isSuccessful || !obj.optBoolean("success", false)) {
-          withContext(Dispatchers.Main) { onError(obj.optString("error", "Registration failed")) }
+          withContext(Dispatchers.Main) { onError(obj.optString("error", "Registration failed (HTTP ${response.code})")) }
           return@launch
         }
         val created = obj.optJSONObject("data")?.optString("name").orEmpty().ifBlank { name }
         withContext(Dispatchers.Main) { onSuccess(created) }
-      } catch (_: Exception) {
-        withContext(Dispatchers.Main) { onError("Unable to reach the server. Please try again.") }
+      } catch (error: Exception) {
+        withContext(Dispatchers.Main) { onError(networkError(error)) }
       }
+    }
+  }
+
+  private fun networkError(error: Exception): String {
+    val detail = error.message?.trim().orEmpty()
+    return if (detail.isBlank()) {
+      "Network error: unable to reach the KP Data Sync server. Please check your internet connection."
+    } else {
+      "Network error: $detail"
     }
   }
 }
