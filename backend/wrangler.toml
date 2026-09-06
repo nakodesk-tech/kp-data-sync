@@ -1,0 +1,25 @@
+name = "kp-data-sync-backend"
+main = "src/index.ts"
+compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+JWT_EXPIRATION = "7d"
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "kp-prod-db"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+migrations_dir = "migrations"
+
+# Cloudflare R2 Bucket Binding for Reports and Media Assets
+[[r2_buckets]]
+binding = "REPORTS_BUCKET"
+bucket_name = "kp-data-sync-reports"
+
+# Observability and Logging
+[observability]
+enabled = true

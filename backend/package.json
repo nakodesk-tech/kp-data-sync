@@ -1,0 +1,18 @@
+{
+  "name": "kp-data-sync-backend",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker backend for KP Data Sync with Hono, D1, and R2",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240329.0",
+    "typescript": "^5.4.3",
+    "wrangler": "^3.40.0"
+  }
+}
