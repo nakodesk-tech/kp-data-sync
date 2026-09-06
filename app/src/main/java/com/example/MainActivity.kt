@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.data.SessionStore
 import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
 import com.example.ui.DashboardHost
@@ -43,7 +44,17 @@ class MainActivity : ComponentActivity() {
     removeSecureFlag()
     enableEdgeToEdge()
     keepSystemBarsVisible()
-    setContent { MyApplicationTheme { Surface(Modifier.fillMaxSize(), color = HighDensityBackground) { MainApp() } } }
+    val restoredSession = SessionStore.load(this)
+    setContent {
+      MyApplicationTheme {
+        Surface(Modifier.fillMaxSize(), color = HighDensityBackground) {
+          MainApp(
+            initialSession = restoredSession,
+            onExitApp = { finishAndRemoveTask() }
+          )
+        }
+      }
+    }
     window.decorView.post {
       removeSecureFlag()
       keepSystemBarsVisible()
@@ -76,27 +87,81 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainApp() {
-  var activeSession by remember { mutableStateOf<UserSession?>(null) }
+fun MainApp(
+  initialSession: UserSession? = null,
+  onExitApp: () -> Unit = {}
+) {
+  var activeSession by remember(initialSession) { mutableStateOf(initialSession) }
   var showRegistration by remember { mutableStateOf(false) }
   var showSchoolRegistration by remember { mutableStateOf(false) }
   var showAdminRegistration by remember { mutableStateOf(false) }
   var registrationMessage by remember { mutableStateOf<String?>(null) }
 
-  LaunchedEffect(registrationMessage) { if (registrationMessage != null) { delay(3500); registrationMessage = null } }
+  val context = androidx.compose.ui.platform.LocalContext.current
+
+  LaunchedEffect(registrationMessage) {
+    if (registrationMessage != null) {
+      delay(3500)
+      registrationMessage = null
+    }
+  }
 
   activeSession?.let { session ->
     when {
-      showRegistration -> UserRegistrationScreen(session, { showRegistration = false }, { name -> registrationMessage = "$name registered successfully"; showRegistration = false })
-      showSchoolRegistration -> SchoolRegistrationScreen(session, { showSchoolRegistration = false }, { name -> registrationMessage = "$name registered successfully"; showSchoolRegistration = false })
+      showRegistration -> UserRegistrationScreen(
+        session,
+        { showRegistration = false },
+        { name ->
+          registrationMessage = "$name registered successfully"
+          showRegistration = false
+        }
+      )
+      showSchoolRegistration -> SchoolRegistrationScreen(
+        session,
+        { showSchoolRegistration = false },
+        { name ->
+          registrationMessage = "$name registered successfully"
+          showSchoolRegistration = false
+        }
+      )
       else -> Box(Modifier.fillMaxSize()) {
-        DashboardHost(session = session, onLogout = { showRegistration = false; showSchoolRegistration = false; activeSession = null; registrationMessage = null }, onRegisterUser = { registrationMessage = null; showRegistration = true })
-        registrationMessage?.let { message -> Snackbar(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 72.dp, start = 16.dp, end = 16.dp)) { Text(message) } }
+        DashboardHost(
+          session = session,
+          onLogout = {
+            SessionStore.clear(context)
+            showRegistration = false
+            showSchoolRegistration = false
+            activeSession = null
+            registrationMessage = null
+          },
+          onRegisterUser = {
+            registrationMessage = null
+            showRegistration = true
+          },
+          onExitApp = onExitApp
+        )
+        registrationMessage?.let { message ->
+          Snackbar(
+            Modifier
+              .align(Alignment.BottomCenter)
+              .fillMaxWidth()
+              .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+          ) { Text(message) }
+        }
       }
     }
   } ?: if (showAdminRegistration) {
-    AdminRegistrationScreen({ showAdminRegistration = false }, { showAdminRegistration = false })
+    AdminRegistrationScreen(
+      { showAdminRegistration = false },
+      { showAdminRegistration = false }
+    )
   } else {
-    RemoteLoginScreen(onLoginSuccess = { activeSession = it }, onAdminRegistration = { showAdminRegistration = true })
+    RemoteLoginScreen(
+      onLoginSuccess = {
+        SessionStore.save(context, it)
+        activeSession = it
+      },
+      onAdminRegistration = { showAdminRegistration = true }
+    )
   }
 }
