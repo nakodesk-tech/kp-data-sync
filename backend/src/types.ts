@@ -13,12 +13,18 @@ export interface UserRow {
   id: string;
   name: string;
   email: string;
+  mobile_number: string | null;
   password_hash: string;
   role: UserRole;
-  cluster_id: string | null;
-  school_id: string | null;
+  cluster_name: string | null;
+  cluster_code: string | null;
+  school_name: string | null;
+  school_code: string | null;
+  address: string | null;
   status: 'active' | 'inactive' | 'pending';
+  fcm_token: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface JWTPayload {
@@ -27,8 +33,10 @@ export interface JWTPayload {
   name: string;
   email: string;
   role: UserRole;
-  cluster_id: string | null;
-  school_id: string | null;
+  cluster_name: string | null;
+  cluster_code: string | null;
+  school_name: string | null;
+  school_code: string | null;
   exp: number;
   iat: number;
 }
