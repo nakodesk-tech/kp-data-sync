@@ -11,8 +11,8 @@ JWT_EXPIRATION = "7d"
 # Cloudflare D1 Database Binding
 [[d1_databases]]
 binding = "DB"
-database_name = "kp-prod-db"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+database_name = "kp-data-sync-db"
+database_id = "e53a68c4-a5c0-4b00-917e-0f741bed8765"
 migrations_dir = "migrations"
 
 # Cloudflare R2 Bucket Binding for Reports and Media Assets
