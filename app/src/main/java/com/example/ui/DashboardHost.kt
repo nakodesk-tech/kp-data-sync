@@ -1,35 +1,50 @@
 package com.example.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.example.model.UserSession
 import com.example.ui.theme.HighDensityBackground
 
 @Composable
-fun DashboardHost(session: UserSession, onLogout: () -> Unit, onRegisterUser: () -> Unit) {
+fun DashboardHost(
+  session: UserSession,
+  onLogout: () -> Unit,
+  onRegisterUser: () -> Unit,
+  onExitApp: () -> Unit
+) {
   var showUsers by remember { mutableStateOf(false) }
+  var selectedTab by remember { mutableStateOf(DashboardTab.Chats) }
+  var showExitConfirmation by remember { mutableStateOf(false) }
+
+  BackHandler {
+    if (showUsers) {
+      // Back from the redesigned Users directory returns to the dashboard instead of exiting.
+      showUsers = false
+      selectedTab = DashboardTab.Chats
+    } else {
+      showExitConfirmation = true
+    }
+  }
 
   Box(Modifier.fillMaxSize()) {
-    DashboardScreen(session = session, onLogout = onLogout)
-
-    if (!showUsers) {
-      // Keep the existing Dashboard navigation active; this only forwards the Users-tab tap.
-      Row(Modifier.fillMaxWidth().height(76.dp).align(Alignment.BottomCenter)) {
-        Spacer(Modifier.weight(1f))
-        Spacer(Modifier.weight(1f))
-        Box(Modifier.weight(1f).fillMaxHeight().clickable { showUsers = true })
-        Spacer(Modifier.weight(1f))
+    DashboardScreen(
+      session = session,
+      onLogout = onLogout,
+      initialTab = selectedTab,
+      onTabChanged = { tab ->
+        selectedTab = tab
+        showUsers = tab == DashboardTab.Users
       }
-    } else {
-      // Compose equivalent of fitsSystemWindows: keep the Users overlay away from
-      // the visible status/navigation bars while leaving the real Dashboard nav bar
-      // exposed and clickable. The opaque background prevents the previous tab from
-      // showing through the redesigned Users directory.
+    )
+
+    if (showUsers) {
+      // Opaque, inset-aware Users directory. The real Dashboard navigation bar remains
+      // visible and receives all non-Users tab taps through DashboardScreen's callback.
       Box(
         Modifier
           .fillMaxSize()
@@ -40,5 +55,24 @@ fun DashboardHost(session: UserSession, onLogout: () -> Unit, onRegisterUser: ()
         UsersTabContent(session = session, onRegisterUser = onRegisterUser)
       }
     }
+  }
+
+  if (showExitConfirmation) {
+    AlertDialog(
+      onDismissRequest = { showExitConfirmation = false },
+      title = { Text("अॅप बंद करायचे आहे का?") },
+      text = { Text("अॅप बंद केल्यावर तुमचे लॉगिन सत्र सुरक्षित राहील. पुढील वेळी अॅप उघडल्यावर पुन्हा लॉगिन करण्याची आवश्यकता नाही.") },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            showExitConfirmation = false
+            onExitApp()
+          }
+        ) { Text("बंद करा") }
+      },
+      dismissButton = {
+        TextButton(onClick = { showExitConfirmation = false }) { Text("रद्द करा") }
+      }
+    )
   }
 }
