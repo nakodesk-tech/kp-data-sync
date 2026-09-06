@@ -45,6 +45,7 @@ import com.example.data.BackendApi
 import com.example.model.UserSession
 import com.example.ui.theme.HighDensityBackground
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SchoolRegistrationScreen(
   session: UserSession,
