@@ -149,7 +149,6 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
         else LazyColumn(modifier = Modifier.heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
           items(schools.filter { it.isActive }, key = { it.id }) { school ->
             Surface(
-              Modifier.fillMaxWidth(), RoundedCornerShape(12.dp), color = Color(0xFFF8FAFC),
               onClick = {
                 schoolName = school.schoolName
                 schoolCode = school.udiseCode
@@ -157,7 +156,10 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
                 clusterCode = school.clusterCode
                 showSchoolPicker = false
                 error = null
-              }
+              },
+              modifier = Modifier.fillMaxWidth(),
+              shape = RoundedCornerShape(12.dp),
+              color = Color(0xFFF8FAFC)
             ) {
               Column(Modifier.padding(12.dp)) {
                 Text(school.schoolName, fontWeight = FontWeight.Bold, color = Color(0xFF172033))
