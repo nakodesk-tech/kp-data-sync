@@ -3,12 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Environment Variables
+# Public Non-Sensitive Environment Variables
+# Sensitive secrets (JWT_SECRET, SETUP_SECRET) MUST be set via `wrangler secret put`
 [vars]
 ENVIRONMENT = "production"
 JWT_EXPIRATION = "7d"
 
 # Cloudflare D1 Database Binding
+# Bound to production database: kp-data-sync-db
 [[d1_databases]]
 binding = "DB"
 database_name = "kp-data-sync-db"
@@ -16,6 +18,7 @@ database_id = "e53a68c4-a5c0-4b00-917e-0f741bed8765"
 migrations_dir = "migrations"
 
 # Cloudflare R2 Bucket Binding for Reports and Media Assets
+# Canonical backend binding name: REPORTS_BUCKET
 [[r2_buckets]]
 binding = "REPORTS_BUCKET"
 bucket_name = "kp-data-sync-reports"

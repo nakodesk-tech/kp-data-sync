@@ -16,7 +16,18 @@ export const authMiddleware = (allowedRoles?: UserRole[]): MiddlewareHandler<{ B
     }
 
     const token = authHeader.substring(7).trim();
-    const secret = c.env.JWT_SECRET || 'kp-data-sync-default-super-secret-key-change-in-prod';
+    const secret = c.env.JWT_SECRET;
+
+    if (!secret) {
+      console.error('CRITICAL: JWT_SECRET is not configured on this Worker environment.');
+      return c.json(
+        {
+          success: false,
+          error: 'Server configuration error: JWT_SECRET is not configured'
+        },
+        500
+      );
+    }
 
     const payload = await verifyJWT<JWTPayload>(token, secret);
     if (!payload) {
@@ -42,7 +53,7 @@ export const authMiddleware = (allowedRoles?: UserRole[]): MiddlewareHandler<{ B
       }
     }
 
-    // Attach user to context
+    // Attach verified user payload to context
     c.set('user', payload);
     await next();
   };

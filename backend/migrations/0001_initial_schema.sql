@@ -1,12 +1,8 @@
 -- ============================================================================
--- KP Data Sync: Cloudflare D1 (SQLite) Canonical Production Schema
--- Supports Role-Based Access Control (RBAC), Messaging, Reports, and Tasks
--- Roles: Admin, Cluster_Head, School_HM, Teacher
--- ============================================================================
--- PRODUCTION NOTICE: This schema defines structure and indexes only.
--- Zero default accounts or test credentials are included.
--- For initial administrative access, use the secure POST /api/auth/setup-admin bootstrap.
--- For local test data, see seed.dev.sql.
+-- KP Data Sync: Cloudflare D1 Migration 0001 - Initial Production Schema
+-- Canonical database tables for KP Data Sync
+-- Tables: clusters, schools, users, groups, group_members, messages, reports, tasks
+-- PRODUCTION NOTE: Empty tables only. No test or demo seed data.
 -- ============================================================================
 
 PRAGMA foreign_keys = ON;

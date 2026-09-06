@@ -4,7 +4,9 @@ export interface Bindings {
   DB: D1Database;
   REPORTS_BUCKET: R2Bucket;
   JWT_SECRET?: string;
+  SETUP_SECRET?: string;
   ENVIRONMENT?: string;
+  CORS_ORIGIN?: string;
 }
 
 export interface UserRow {
