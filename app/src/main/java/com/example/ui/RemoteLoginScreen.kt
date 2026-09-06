@@ -26,7 +26,7 @@ import com.example.ui.theme.*
 @Composable
 fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit, onAdminRegistration: () -> Unit) {
   var selectedRole by remember { mutableStateOf(UserRole.Admin) }
-  var email by remember { mutableStateOf("admin@kpdatasync.com") }
+  var email by remember { mutableStateOf("") }
   var password by remember { mutableStateOf("") }
   var visible by remember { mutableStateOf(false) }
   var loading by remember { mutableStateOf(false) }
@@ -93,24 +93,34 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit, onAdminRegistration
 
       Spacer(Modifier.height(20.dp))
       OutlinedTextField(
-        value = email, onValueChange = { email = it; error = null }, label = { Text("E-Mail Address") },
-        leadingIcon = { Icon(Icons.Default.Email, null) }, singleLine = true, shape = RoundedCornerShape(14.dp),
-        colors = fieldColors, modifier = Modifier.fillMaxWidth()
+        value = email,
+        onValueChange = { email = it; error = null },
+        label = { Text("नोंदणीकृत इमेल टाका.") },
+        leadingIcon = { Icon(Icons.Default.Email, null) },
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        colors = fieldColors,
+        modifier = Modifier.fillMaxWidth()
       )
       Spacer(Modifier.height(14.dp))
       OutlinedTextField(
-        value = password, onValueChange = { password = it; error = null }, label = { Text("Password") },
+        value = password,
+        onValueChange = { password = it; error = null },
+        label = { Text("आपला पासवर्ड टाका.") },
         leadingIcon = { Icon(Icons.Default.Lock, null) },
         trailingIcon = { IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } },
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-        singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors, modifier = Modifier.fillMaxWidth()
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        colors = fieldColors,
+        modifier = Modifier.fillMaxWidth()
       )
       error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
       Spacer(Modifier.height(20.dp))
       Button(
         enabled = !loading,
         onClick = {
-          if (email.isBlank() || password.isBlank()) { error = "Please enter both email and password"; return@Button }
+          if (email.isBlank() || password.isBlank()) { error = "नोंदणीकृत इमेल आणि पासवर्ड दोन्ही टाका."; return@Button }
           loading = true
           BackendApi.login(email.trim(), password, selectedRole.roleName,
             onSuccess = { session -> loading = false; onLoginSuccess(session) },
@@ -131,13 +141,12 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit, onAdminRegistration
       }
 
       Spacer(Modifier.height(18.dp))
-      Surface(shape = RoundedCornerShape(20.dp), color = HighDensityPrimaryContainer) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-          Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00C853)))
-          Spacer(Modifier.width(6.dp))
-          Text("Cloudflare D1 (SQLite) • R2 Storage • Hono.js", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = HighDensityOnPrimaryContainer)
-        }
-      }
+      Text(
+        "Made in ♥️ with Teacher By Sachin Nakode",
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        color = HighDensitySecondary
+      )
     }
   }
 }
