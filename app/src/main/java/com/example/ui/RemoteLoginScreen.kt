@@ -24,16 +24,29 @@ import com.example.model.UserSession
 import com.example.ui.theme.*
 
 @Composable
-fun RemoteLoginScreen(
-  onLoginSuccess: (UserSession) -> Unit,
-  onAdminRegistration: () -> Unit
-) {
+fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit, onAdminRegistration: () -> Unit) {
   var selectedRole by remember { mutableStateOf(UserRole.Admin) }
   var email by remember { mutableStateOf("admin@kpdatasync.com") }
   var password by remember { mutableStateOf("") }
   var visible by remember { mutableStateOf(false) }
   var loading by remember { mutableStateOf(false) }
   var error by remember { mutableStateOf<String?>(null) }
+
+  val fieldColors = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = HighDensityOnBackground,
+    unfocusedTextColor = HighDensityOnBackground,
+    focusedLabelColor = HighDensityPrimary,
+    unfocusedLabelColor = Color(0xFF64748B),
+    cursorColor = HighDensityPrimary,
+    focusedLeadingIconColor = HighDensityPrimary,
+    unfocusedLeadingIconColor = Color(0xFF64748B),
+    focusedTrailingIconColor = HighDensityPrimary,
+    unfocusedTrailingIconColor = Color(0xFF64748B),
+    focusedBorderColor = HighDensityPrimary,
+    unfocusedBorderColor = Color(0xFFCBD5E1),
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White
+  )
 
   Box(Modifier.fillMaxSize().background(HighDensityBackground).statusBarsPadding().navigationBarsPadding()) {
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -79,9 +92,19 @@ fun RemoteLoginScreen(
       }
 
       Spacer(Modifier.height(20.dp))
-      OutlinedTextField(value = email, onValueChange = { email = it; error = null }, label = { Text("E-Mail Address") }, leadingIcon = { Icon(Icons.Default.Email, null) }, singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
+      OutlinedTextField(
+        value = email, onValueChange = { email = it; error = null }, label = { Text("E-Mail Address") },
+        leadingIcon = { Icon(Icons.Default.Email, null) }, singleLine = true, shape = RoundedCornerShape(14.dp),
+        colors = fieldColors, modifier = Modifier.fillMaxWidth()
+      )
       Spacer(Modifier.height(14.dp))
-      OutlinedTextField(value = password, onValueChange = { password = it; error = null }, label = { Text("Password") }, leadingIcon = { Icon(Icons.Default.Lock, null) }, trailingIcon = { IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } }, visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth())
+      OutlinedTextField(
+        value = password, onValueChange = { password = it; error = null }, label = { Text("Password") },
+        leadingIcon = { Icon(Icons.Default.Lock, null) },
+        trailingIcon = { IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } },
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        singleLine = true, shape = RoundedCornerShape(14.dp), colors = fieldColors, modifier = Modifier.fillMaxWidth()
+      )
       error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
       Spacer(Modifier.height(20.dp))
       Button(
@@ -101,11 +124,7 @@ fun RemoteLoginScreen(
       }
 
       Spacer(Modifier.height(12.dp))
-      OutlinedButton(
-        onClick = onAdminRegistration,
-        modifier = Modifier.fillMaxWidth().height(46.dp),
-        shape = RoundedCornerShape(14.dp)
-      ) {
+      OutlinedButton(onClick = onAdminRegistration, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(14.dp)) {
         Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
         Text("FIRST-TIME APP ADMIN REGISTRATION", fontSize = 11.sp, fontWeight = FontWeight.Bold)
