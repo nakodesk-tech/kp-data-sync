@@ -55,7 +55,6 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
           Text("Create an account within your authorized scope", fontSize = 11.sp, color = Color(0xFF64748B))
         }
       }
-
       Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), color = HighDensityPrimaryContainer) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
           Icon(Icons.Default.Security, contentDescription = null, tint = HighDensityPrimary)
@@ -63,30 +62,25 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
           Text("Signed in as ${session.role.displayName}. Server-side RBAC verifies this registration.", fontSize = 11.sp, color = HighDensityOnPrimaryContainer)
         }
       }
-
       Text("SELECT ROLE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF94A3B8), letterSpacing = 1.sp)
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         allowedRoles.forEach { item ->
           FilterChip(selected = role == item, onClick = { role = item; error = null }, label = { Text(item.displayName, fontSize = 10.sp) })
         }
       }
-
       RegistrationField("Full Name", name, { name = it }, Icons.Default.Person)
       RegistrationField("E-Mail Address", email, { email = it }, Icons.Default.Email, KeyboardType.Email)
       RegistrationField("Mobile Number", mobile, { mobile = it }, Icons.Default.Phone, KeyboardType.Phone)
       RegistrationField("Cluster Name", clusterName, { clusterName = it }, Icons.Default.Hub)
       RegistrationField("Cluster Code", clusterCode, { clusterCode = it }, Icons.Default.Tag)
-
       if (role == UserRole.School_HM || role == UserRole.Teacher) {
         RegistrationField("School Name", schoolName, { schoolName = it }, Icons.Default.AccountBalance)
         RegistrationField("School / UDISE Code", schoolCode, { schoolCode = it }, Icons.Default.Badge, KeyboardType.Number)
       }
-
       RegistrationField("Address", address, { address = it }, Icons.Default.LocationOn)
       RegistrationField("Password", password, { password = it }, Icons.Default.Lock, KeyboardType.Password, true)
       RegistrationField("Confirm Password", confirmPassword, { confirmPassword = it }, Icons.Default.Lock, KeyboardType.Password, true)
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, fontWeight = FontWeight.Medium) }
-
       Button(
         onClick = {
           error = when {
@@ -130,7 +124,20 @@ private fun RegistrationField(label: String, value: String, onValueChange: (Stri
     leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFF64748B)) }, singleLine = true,
     visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
     keyboardOptions = KeyboardOptions(keyboardType = keyboardType), shape = RoundedCornerShape(14.dp),
-    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = HighDensityPrimary, unfocusedBorderColor = Color(0xFFCBD5E1), focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+    colors = OutlinedTextFieldDefaults.colors(
+      focusedTextColor = HighDensityOnBackground,
+      unfocusedTextColor = HighDensityOnBackground,
+      disabledTextColor = Color(0xFF94A3B8),
+      focusedLabelColor = HighDensityPrimary,
+      unfocusedLabelColor = Color(0xFF64748B),
+      cursorColor = HighDensityPrimary,
+      focusedLeadingIconColor = HighDensityPrimary,
+      unfocusedLeadingIconColor = Color(0xFF64748B),
+      focusedBorderColor = HighDensityPrimary,
+      unfocusedBorderColor = Color(0xFFCBD5E1),
+      focusedContainerColor = Color.White,
+      unfocusedContainerColor = Color.White
+    ),
     modifier = Modifier.fillMaxWidth()
   )
 }
