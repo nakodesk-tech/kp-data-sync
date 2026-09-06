@@ -82,32 +82,28 @@ fun SchoolsTabContent(
       contentPadding = PaddingValues(top = 10.dp, bottom = 18.dp)
     ) {
       item {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-          Column(Modifier.weight(1f)) {
-            Text("शाळा व्यवस्थापन", fontSize = 23.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033))
-            Text("नोंदणीकृत शाळांची माहिती, शोध व व्यवस्थापन", fontSize = 12.sp, color = Color(0xFF64748B))
-          }
+        Column(
+          Modifier.fillMaxWidth(),
+          horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+          Text("शाळा व्यवस्थापन", fontSize = 23.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033))
+          Text("नोंदणीकृत शाळांची माहिती, शोध व व्यवस्थापन", fontSize = 12.sp, color = Color(0xFF64748B))
+          Spacer(Modifier.height(8.dp))
           Surface(color = Color(0xFFEDE7F6), shape = RoundedCornerShape(16.dp)) {
-            Column(Modifier.padding(horizontal = 15.dp, vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+              Modifier.padding(horizontal = 18.dp, vertical = 7.dp),
+              horizontalAlignment = Alignment.CenterHorizontally
+            ) {
               Text("${records.size}", fontSize = 22.sp, fontWeight = FontWeight.Black, color = HighDensityPrimary)
-              Text("एकूण शाळा", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = HighDensityPrimary)
+              Text("एकूण नोंदणीकृत शाळा", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = HighDensityPrimary)
             }
           }
         }
       }
 
       item {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-          if (canManage) {
-            SchoolActionCard(
-              Modifier.weight(1f), Icons.Default.AddBusiness, "नवीन शाळा नोंदणी",
-              "UDISE, केंद्र, तालुका व मुख्याध्यापक माहिती जतन करा", Color(0xFFE8F5E9), Color(0xFF00897B)
-            ) { showAdd = true }
-          }
-          SchoolActionCard(
-            Modifier.weight(1f), Icons.Default.School, "शाळांची यादी",
-            "नोंदणीकृत शाळा शोधा व त्यांचा Active / Inactive status पहा", Color(0xFFE8EAF6), Color(0xFF5E35B1)
-          ) { filter = "all" }
+        if (canManage) {
+          SchoolRegistrationCard(onClick = { showAdd = true })
         }
       }
 
@@ -205,13 +201,49 @@ fun SchoolsTabContent(
 }
 
 @Composable
-private fun SchoolActionCard(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, container: Color, tint: Color, onClick: () -> Unit) {
-  Surface(modifier.clickable(onClick = onClick), color = Color.White, shape = RoundedCornerShape(18.dp), tonalElevation = 1.dp) {
-    Column(Modifier.padding(14.dp)) {
-      Surface(color = container, shape = RoundedCornerShape(12.dp)) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(10.dp).size(23.dp)) }
-      Spacer(Modifier.height(9.dp))
-      Text(title, fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033))
-      Text(subtitle, fontSize = 10.sp, color = Color(0xFF64748B), maxLines = 2, overflow = TextOverflow.Ellipsis)
+private fun SchoolRegistrationCard(onClick: () -> Unit) {
+  Surface(
+    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    color = Color.White,
+    shape = RoundedCornerShape(20.dp),
+    tonalElevation = 2.dp
+  ) {
+    Column(
+      Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      Surface(
+        color = Color(0xFFE8F5E9),
+        shape = RoundedCornerShape(16.dp)
+      ) {
+        Icon(
+          Icons.Default.AddBusiness,
+          contentDescription = null,
+          tint = Color(0xFF00897B),
+          modifier = Modifier.padding(12.dp).size(30.dp)
+        )
+      }
+      Spacer(Modifier.height(10.dp))
+      Text("नवीन शाळा नोंदणी", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033))
+      Spacer(Modifier.height(4.dp))
+      Text(
+        "शाळेचे नाव, UDISE कोड, केंद्र व आवश्यक माहिती नोंदवून नवीन शाळा जोडा.",
+        fontSize = 11.sp,
+        color = Color(0xFF64748B),
+        lineHeight = 16.sp,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+      )
+      Spacer(Modifier.height(12.dp))
+      Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00897B)),
+        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 9.dp)
+      ) {
+        Icon(Icons.Default.AddBusiness, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(7.dp))
+        Text("शाळा नोंदणी सुरू करा", fontWeight = FontWeight.Bold)
+      }
     }
   }
 }
