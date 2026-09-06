@@ -44,6 +44,26 @@ object BackendApi {
     }
   }
 
+  fun setupInitialAdmin(setupSecret: String, name: String, email: String, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val json = JSONObject().apply { put("setup_secret", setupSecret); put("name", name); put("email", email); put("password", password) }
+        val response = client.newCall(
+          Request.Builder().url("$BASE_URL/api/auth/setup-admin").post(json.toString().toRequestBody(jsonType)).build()
+        ).execute()
+        val obj = JSONObject(response.body?.string().orEmpty())
+        if (!response.isSuccessful || !obj.optBoolean("success", false)) {
+          withContext(Dispatchers.Main) { onError(obj.optString("error", "Admin registration failed")) }
+          return@launch
+        }
+        val created = obj.optJSONObject("user")?.optString("name").orEmpty().ifBlank { name }
+        withContext(Dispatchers.Main) { onSuccess(created) }
+      } catch (_: Exception) {
+        withContext(Dispatchers.Main) { onError("Unable to reach the server. Please try again.") }
+      }
+    }
+  }
+
   fun registerUser(token: String, name: String, email: String, mobile: String?, role: String, clusterName: String?, clusterCode: String?, schoolName: String?, schoolCode: String?, address: String?, password: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
