@@ -195,7 +195,7 @@ private fun MessageBubble(message: GroupMessage, context: Context, token: String
         if (!mine) Text(message.senderName, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = HighDensityPrimary)
         when (message.messageType) {
           "text" -> if (!message.text.isNullOrBlank()) Text(message.text.orEmpty(), color = HighDensityOnBackground, fontSize = 14.sp)
-          "link" -> LinkCard(message)
+          "link" -> LinkCard(message, context)
           "image" -> AttachmentCard(message, Icons.Default.Image, "Image", context, token)
           "excel" -> AttachmentCard(message, Icons.Default.Description, "Excel / CSV", context, token)
           "pdf" -> AttachmentCard(message, Icons.Default.PictureAsPdf, "PDF", context, token)
@@ -210,11 +210,11 @@ private fun MessageBubble(message: GroupMessage, context: Context, token: String
 }
 
 @Composable
-private fun LinkCard(message: GroupMessage) {
+private fun LinkCard(message: GroupMessage, context: Context) {
   TextButton(onClick = {
     val value = message.linkUrl.orEmpty()
     if (value.startsWith("http://") || value.startsWith("https://")) {
-      messageLinkIntent(value)
+      context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value)))
     }
   }, contentPadding = PaddingValues(0.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -223,10 +223,6 @@ private fun LinkCard(message: GroupMessage) {
       Text(message.linkUrl.orEmpty(), color = HighDensityPrimary, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
     }
   }
-}
-
-private fun messageLinkIntent(url: String) {
-  // Handled by Android's default browser through the current activity in the clickable callback.
 }
 
 @Composable
