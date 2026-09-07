@@ -19,7 +19,8 @@ data class UserSession(
   val schoolName: String? = null,
   val schoolCode: String? = null,
   val token: String,
-  val status: String = "active"
+  val status: String = "active",
+  val mobile: String? = null
 )
 
 data class UserRecord(
