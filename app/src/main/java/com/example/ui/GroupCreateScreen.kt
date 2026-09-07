@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,6 +46,7 @@ import kotlinx.coroutines.withContext
 private data class ScopeOption(val code: String, val label: String, val subtitle: String)
 private data class SchoolOption(val code: String, val name: String, val clusterCode: String)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GroupCreateScreen(
   session: UserSession,
