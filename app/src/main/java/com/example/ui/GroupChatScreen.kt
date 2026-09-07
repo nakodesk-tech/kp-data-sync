@@ -156,13 +156,18 @@ fun GroupChatScreen(
       Text(uploadError.orEmpty(), Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp), color = Color(0xFFB91C1C), fontSize = 11.sp)
     }
 
+    // When the IME is visible, apply only the IME inset. The IME already occupies
+    // the bottom navigation area, so adding navigationBarsPadding at the same time
+    // creates the visible gap between the composer and keyboard.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
     Surface(
       color = Color.White,
       tonalElevation = 2.dp,
-      modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+      modifier = if (imeVisible) Modifier.imePadding() else Modifier.navigationBarsPadding()
     ) {
       Row(
-        Modifier.fillMaxWidth().padding(8.dp),
+        Modifier.fillMaxWidth().padding(4.dp),
         verticalAlignment = Alignment.Bottom
       ) {
         IconButton(enabled = !uploading, onClick = { picker.launch(arrayOf("image/*", "application/pdf", "text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "audio/*")) }) {
