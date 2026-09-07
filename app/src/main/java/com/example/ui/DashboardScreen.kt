@@ -40,12 +40,25 @@ fun DashboardScreen(
   onExitApp: () -> Unit
 ) {
   var currentTab by remember { mutableStateOf(DashboardTab.Chats) }
+  var activeChatGroup by remember { mutableStateOf<ChatGroup?>(null) }
   var showExitConfirmation by remember { mutableStateOf(false) }
   var showNotificationInfo by remember { mutableStateOf(false) }
 
   BackHandler {
-    if (currentTab != DashboardTab.Chats) currentTab = DashboardTab.Chats
-    else showExitConfirmation = true
+    when {
+      activeChatGroup != null -> activeChatGroup = null
+      currentTab != DashboardTab.Chats -> currentTab = DashboardTab.Chats
+      else -> showExitConfirmation = true
+    }
+  }
+
+  if (activeChatGroup != null) {
+    GroupChatScreen(
+      group = activeChatGroup!!,
+      session = session,
+      onBack = { activeChatGroup = null }
+    )
+    return
   }
 
   Scaffold(
@@ -88,7 +101,7 @@ fun DashboardScreen(
   ) { padding ->
     Box(Modifier.fillMaxSize().padding(padding)) {
       when (currentTab) {
-        DashboardTab.Chats -> ChatsContent(session = session, onOpenSchools = { currentTab = DashboardTab.Schools })
+        DashboardTab.Chats -> ChatsContent(session = session, onOpenSchools = { currentTab = DashboardTab.Schools }, onOpenChat = { activeChatGroup = it })
         DashboardTab.Schools -> SchoolsTabContent(SchoolDirectorySeed(), session.role) { }
         DashboardTab.Users -> UsersTabContent(session = session, onRegisterUser = onRegisterUser)
         DashboardTab.Profile -> ProfileContent(session, onLogout)
@@ -123,7 +136,7 @@ private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.Ima
 }
 
 @Composable
-private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit) {
+private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit, onOpenChat: (ChatGroup) -> Unit) {
   var groups by remember { mutableStateOf(SyncRepository.initialGroups) }
   var searchQuery by remember { mutableStateOf("") }
   var showCreateGroupScreen by remember { mutableStateOf(false) }
@@ -195,7 +208,7 @@ private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit) {
     } else if (visibleGroups.isEmpty()) {
       item { EmptyCard(if (groupLoadError != null && groups.isEmpty()) "Chats load करता आले नाहीत. कृपया पुन्हा प्रयत्न करा." else if (searchQuery.isBlank()) "आपल्या भूमिकेसाठी सध्या कोणतेही Chats उपलब्ध नाहीत." else "दिलेल्या शोधासाठी Chat सापडला नाही.") }
     } else {
-      items(visibleGroups, key = { it.id }) { group -> ChatRow(group) }
+      items(visibleGroups, key = { it.id }) { group -> ChatRow(group, onClick = { onOpenChat(group) }) }
     }
   }
 }
@@ -238,8 +251,8 @@ private fun AdminMetricCard(modifier: Modifier, icon: androidx.compose.ui.graphi
 }
 
 @Composable
-private fun ChatRow(group: ChatGroup) {
-  Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color.White, tonalElevation = 1.dp) {
+private fun ChatRow(group: ChatGroup, onClick: () -> Unit) {
+  Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), RoundedCornerShape(18.dp), color = Color.White, tonalElevation = 1.dp) {
     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
       Box(Modifier.size(46.dp).clip(CircleShape).background(HighDensityPrimaryContainer), contentAlignment = Alignment.Center) { Icon(Icons.Default.Groups, null, tint = HighDensityPrimary) }
       Spacer(Modifier.width(12.dp))
@@ -258,7 +271,7 @@ private fun ChatRow(group: ChatGroup) {
 
 private fun isGroupVisible(group: ChatGroup, session: UserSession): Boolean = when (session.role) {
   UserRole.Admin -> true
-  UserRole.Cluster_Head -> group.scope == "cluster" && group.scope == session.clusterCode || group.scope == "cluster"
+  UserRole.Cluster_Head -> group.scope == "cluster"
   UserRole.School_HM, UserRole.Teacher -> group.scope == "school" || group.scope == "system"
 }
 
