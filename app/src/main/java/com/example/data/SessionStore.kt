@@ -21,6 +21,8 @@ object SessionStore {
   private const val KEY_STATUS = "status"
 
   fun save(context: Context, session: UserSession) {
+    // Use commit() for the authentication session so a process/activity recreation
+    // immediately after login cannot race the asynchronous SharedPreferences write.
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
       .putString(KEY_ID, session.id)
       .putString(KEY_NAME, session.name)
@@ -34,7 +36,7 @@ object SessionStore {
       .putString(KEY_SCHOOL_CODE, session.schoolCode)
       .putString(KEY_TOKEN, session.token)
       .putString(KEY_STATUS, session.status)
-      .apply()
+      .commit()
   }
 
   fun load(context: Context): UserSession? {
