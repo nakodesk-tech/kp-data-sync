@@ -40,7 +40,7 @@ object BackendApi {
         val obj = JSONObject(response.body?.string().orEmpty())
         if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error", "Login failed (HTTP ${response.code})")) }; return@launch }
         val user = obj.getJSONObject("user")
-        val session = UserSession(id = user.getString("id"), name = user.getString("name"), email = user.getString("email"), role = UserRole.values().first { it.roleName == user.getString("role") }, clusterName = user.optString("cluster_name").ifBlank { null }, clusterCode = user.optString("cluster_code").ifBlank { null }, schoolName = user.optString("school_name").ifBlank { null }, schoolCode = user.optString("school_code").ifBlank { null }, token = obj.getString("token"), status = user.optString("status", "active"))
+        val session = UserSession(id = user.getString("id"), name = user.getString("name"), email = user.getString("email"), role = UserRole.values().first { it.roleName == user.getString("role") }, clusterName = user.optString("cluster_name").ifBlank { null }, clusterCode = user.optString("cluster_code").ifBlank { null }, schoolName = user.optString("school_name").ifBlank { null }, schoolCode = user.optString("school_code").ifBlank { null }, token = obj.getString("token"), status = user.optString("status", "active"), mobile = user.optString("mobile_number").ifBlank { null })
         activeSession = session
         lastAuthenticatedToken = session.token
         withContext(Dispatchers.Main) { onSuccess(session) }
