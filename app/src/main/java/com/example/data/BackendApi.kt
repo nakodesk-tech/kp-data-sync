@@ -1,6 +1,12 @@
 package com.example.data
 
+import android.content.Context
+import android.net.Uri
+import com.example.model.ChatGroup
+import com.example.model.GroupCreateResult
+import com.example.model.GroupMemberCandidate
 import com.example.model.SchoolRecord
+import com.example.model.UserRecord
 import com.example.model.UserRole
 import com.example.model.UserSession
 import kotlinx.coroutines.CoroutineScope
@@ -8,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -17,7 +24,8 @@ import java.util.concurrent.TimeUnit
 
 object BackendApi {
   private const val BASE_URL = "https://kp-data-sync-api.nakodesk.workers.dev"
-  private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).writeTimeout(20, TimeUnit.SECONDS).build()
+  private const val MAX_GROUP_PHOTO_BYTES = 5 * 1024 * 1024
+  private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).writeTimeout(30, TimeUnit.SECONDS).build()
   private val jsonType = "application/json; charset=utf-8".toMediaType()
   @Volatile private var activeSession: UserSession? = null
 
@@ -61,6 +69,76 @@ object BackendApi {
         if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "Registration failed (HTTP ${response.code})" }) }; return@launch }
         val created = obj.optJSONObject("data")?.optString("name").orEmpty().ifBlank { name }
         withContext(Dispatchers.Main) { onSuccess(created) }
+      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
+    }
+  }
+
+  fun getUserDirectory(token: String, onSuccess: (List<GroupMemberCandidate>) -> Unit, onError: (String) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val response = client.newCall(Request.Builder().url("$BASE_URL/api/user/directory").addHeader("Authorization", "Bearer $token").get().build()).execute()
+        val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
+        if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "Unable to load users (HTTP ${response.code})" }) }; return@launch }
+        val array = obj.optJSONArray("data") ?: JSONArray()
+        val list = buildList {
+          for (i in 0 until array.length()) {
+            val item = array.optJSONObject(i) ?: continue
+            val role = UserRole.values().firstOrNull { it.roleName == item.optString("role") } ?: continue
+            add(GroupMemberCandidate(item.optString("id"), item.optString("name"), item.optString("email"), role, item.optString("cluster_name"), item.optString("cluster_code"), item.optString("school_name"), item.optString("school_code"), item.optString("status")))
+          }
+        }
+        withContext(Dispatchers.Main) { onSuccess(list) }
+      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
+    }
+  }
+
+  fun getGroups(token: String, onSuccess: (List<ChatGroup>) -> Unit, onError: (String) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val response = client.newCall(Request.Builder().url("$BASE_URL/api/groups").addHeader("Authorization", "Bearer $token").get().build()).execute()
+        val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
+        if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "Unable to load groups (HTTP ${response.code})" }) }; return@launch }
+        val array = obj.optJSONArray("data") ?: JSONArray()
+        val list = buildList {
+          for (i in 0 until array.length()) {
+            val item = array.optJSONObject(i) ?: continue
+            add(ChatGroup(item.optString("id"), item.optString("group_name"), "", "", time = item.optString("created_at").take(16).replace('T', ' '), scope = item.optString("scope_type", "cluster"), groupType = item.optString("group_type", "general"), memberCount = item.optInt("member_count", 0), photoKey = item.optString("photo_key").ifBlank { null }))
+          }
+        }
+        withContext(Dispatchers.Main) { onSuccess(list) }
+      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
+    }
+  }
+
+  fun createGroup(context: Context, session: UserSession, groupName: String, description: String, groupType: String, scopeType: String, clusterCode: String?, schoolCode: String?, memberIds: List<String>, photoUri: Uri?, onSuccess: (GroupCreateResult) -> Unit, onError: (String) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        var photoPart: MultipartBody.Part? = null
+        if (photoUri != null) {
+          val mime = context.contentResolver.getType(photoUri).orEmpty().lowercase()
+          if (mime !in setOf("image/jpeg", "image/png", "image/webp")) { withContext(Dispatchers.Main) { onError("ग्रुप फोटो JPG, PNG किंवा WebP असावा.") }; return@launch }
+          val bytes = context.contentResolver.openInputStream(photoUri)?.use { it.readBytes() }
+            ?: run { withContext(Dispatchers.Main) { onError("ग्रुप फोटो वाचता आला नाही.") }; return@launch }
+          if (bytes.size > MAX_GROUP_PHOTO_BYTES) { withContext(Dispatchers.Main) { onError("ग्रुप फोटो 5 MB पेक्षा कमी असावा.") }; return@launch }
+          photoPart = MultipartBody.Part.createFormData("photo", "group-avatar", bytes.toRequestBody(mime.toMediaType()))
+        }
+
+        val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
+          .addFormDataPart("group_name", groupName.trim())
+          .addFormDataPart("description", description.trim())
+          .addFormDataPart("group_type", groupType)
+          .addFormDataPart("scope_type", scopeType)
+          .addFormDataPart("member_ids", JSONArray(memberIds.distinct()).toString())
+        if (!clusterCode.isNullOrBlank()) builder.addFormDataPart("cluster_code", clusterCode)
+        if (!schoolCode.isNullOrBlank()) builder.addFormDataPart("school_code", schoolCode)
+        if (photoPart != null) builder.addPart(photoPart)
+
+        val response = client.newCall(Request.Builder().url("$BASE_URL/api/groups").addHeader("Authorization", "Bearer ${session.token}").post(builder.build()).build()).execute()
+        val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
+        if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "ग्रुप तयार करता आला नाही (HTTP ${response.code})" }) }; return@launch }
+        val data = obj.optJSONObject("data") ?: JSONObject()
+        val result = GroupCreateResult(data.optString("id"), data.optString("group_name"), data.optString("group_type"), data.optString("scope_type"), data.optString("cluster_code").ifBlank { null }, data.optString("school_code").ifBlank { null }, data.optString("description").ifBlank { null }, data.optInt("member_count", 0), data.optString("photo_key").ifBlank { null })
+        withContext(Dispatchers.Main) { onSuccess(result) }
       } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
     }
   }
