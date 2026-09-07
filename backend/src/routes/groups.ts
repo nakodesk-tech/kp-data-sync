@@ -86,6 +86,7 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
   const schoolCode = String(form.get('school_code') || '').trim() || null;
   const rawMembers = String(form.get('member_ids') || '[]');
   const photo = form.get('photo');
+  const photoFile = photo !== null && typeof photo !== 'string' ? photo : null;
 
   if (groupName.length < 2 || groupName.length > 80) return error(c, 'Group name must contain 2 to 80 characters');
   if (description.length > 500) return error(c, 'Group description cannot exceed 500 characters');
@@ -154,34 +155,40 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
       if (effectiveScope === 'school' && user.school_code !== effectiveSchoolCode) return error(c, `User '${user.name}' is outside the selected school`, 400);
     }
 
-    let photoKey: string | null = null;
-    if (photo instanceof File && photo.size > 0) {
-      if (!ALLOWED_PHOTO_TYPES.has(photo.type)) return error(c, 'Group photo must be JPG, PNG or WebP');
-      if (photo.size > MAX_PHOTO_BYTES) return error(c, 'Group photo must be 5 MB or smaller');
+    if (photoFile && photoFile.size > 0) {
+      if (!ALLOWED_PHOTO_TYPES.has(photoFile.type)) return error(c, 'Group photo must be JPG, PNG or WebP');
+      if (photoFile.size > MAX_PHOTO_BYTES) return error(c, 'Group photo must be 5 MB or smaller');
     }
 
     const groupId = `group-${crypto.randomUUID()}`;
-    if (photo instanceof File && photo.size > 0) {
-      const extension = photo.type === 'image/png' ? 'png' : photo.type === 'image/webp' ? 'webp' : 'jpg';
+    let photoKey: string | null = null;
+    if (photoFile && photoFile.size > 0) {
+      const extension = photoFile.type === 'image/png' ? 'png' : photoFile.type === 'image/webp' ? 'webp' : 'jpg';
       photoKey = `groups/${groupId}/avatar.${extension}`;
-      await c.env.R2_BUCKET.put(photoKey, photo.stream(), {
-        httpMetadata: { contentType: photo.type, cacheControl: 'public, max-age=31536000, immutable' },
+      await c.env.R2_BUCKET.put(photoKey, photoFile.stream(), {
+        httpMetadata: { contentType: photoFile.type, cacheControl: 'public, max-age=31536000, immutable' },
         customMetadata: { groupId, uploadedBy: actor.id }
       });
     }
 
     try {
-      await c.env.DB.prepare(`
-        INSERT INTO groups (id, group_name, group_type, created_by, cluster_code, school_code, scope_type, description, photo_key, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-      `).bind(groupId, groupName, groupType, actor.id, effectiveClusterCode, effectiveSchoolCode, effectiveScope, description || null, photoKey).run();
+      // D1 batch makes group + membership creation atomic: if any membership insert fails,
+      // the group insert is rolled back as well.
+      const statements: D1PreparedStatement[] = [
+        c.env.DB.prepare(`
+          INSERT INTO groups (id, group_name, group_type, created_by, cluster_code, school_code, scope_type, description, photo_key, is_active)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        `).bind(groupId, groupName, groupType, actor.id, effectiveClusterCode, effectiveSchoolCode, effectiveScope, description || null, photoKey)
+      ];
 
       for (const user of userRows) {
-        await c.env.DB.prepare(`
+        statements.push(c.env.DB.prepare(`
           INSERT INTO group_members (id, group_id, group_name, user_id, user_name, role_in_group, is_active)
           VALUES (?, ?, ?, ?, ?, ?, 1)
-        `).bind(`gm-${crypto.randomUUID()}`, groupId, groupName, user.id, user.name, user.id === actor.id ? 'owner' : 'member').run();
+        `).bind(`gm-${crypto.randomUUID()}`, groupId, groupName, user.id, user.name, user.id === actor.id ? 'owner' : 'member'));
       }
+
+      await c.env.DB.batch(statements);
     } catch (dbError: any) {
       if (photoKey) await c.env.R2_BUCKET.delete(photoKey).catch(() => undefined);
       throw dbError;
