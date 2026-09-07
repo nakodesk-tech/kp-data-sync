@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.data.BackendApi
 import com.example.data.SessionStore
 import com.example.model.UserSession
 import com.example.ui.AdminRegistrationScreen
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     keepSystemBarsVisible()
     val restoredSession = SessionStore.load(this)
+    if (restoredSession != null) BackendApi.restoreSession(restoredSession)
     setContent {
       MyApplicationTheme {
         Surface(Modifier.fillMaxSize(), color = HighDensityBackground) {
