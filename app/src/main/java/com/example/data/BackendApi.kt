@@ -156,8 +156,7 @@ object BackendApi {
     }
   }
 
-  fun getSchools(onSuccess: (List<SchoolRecord>) -> Unit, onError: (String) -> Unit) {
-    val token = activeSession?.token.orEmpty()
+  fun getSchools(token: String, onSuccess: (List<SchoolRecord>) -> Unit, onError: (String) -> Unit) {
     if (token.isBlank()) { onError("Session expired. Please login again."); return }
     CoroutineScope(Dispatchers.IO).launch {
       try {
