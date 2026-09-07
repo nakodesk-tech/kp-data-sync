@@ -19,6 +19,7 @@ object SessionStore {
   private const val KEY_SCHOOL_CODE = "school_code"
   private const val KEY_TOKEN = "token"
   private const val KEY_STATUS = "status"
+  private const val KEY_MOBILE = "mobile"
 
   fun save(context: Context, session: UserSession) {
     // Use commit() for the authentication session so a process/activity recreation
@@ -36,6 +37,7 @@ object SessionStore {
       .putString(KEY_SCHOOL_CODE, session.schoolCode)
       .putString(KEY_TOKEN, session.token)
       .putString(KEY_STATUS, session.status)
+      .putString(KEY_MOBILE, session.mobile)
       .commit()
   }
 
@@ -60,7 +62,8 @@ object SessionStore {
       schoolName = prefs.getString(KEY_SCHOOL_NAME, null),
       schoolCode = prefs.getString(KEY_SCHOOL_CODE, null),
       token = token,
-      status = prefs.getString(KEY_STATUS, "active") ?: "active"
+      status = prefs.getString(KEY_STATUS, "active") ?: "active",
+      mobile = prefs.getString(KEY_MOBILE, null)
     )
   }
 
