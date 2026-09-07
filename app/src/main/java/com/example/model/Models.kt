@@ -101,14 +101,37 @@ data class GroupCreateResult(
   val photoKey: String?
 )
 
+enum class ChatConnectionState { Connecting, Connected, Disconnected, Reconnecting, Error }
+
+data class AttachmentUploadResult(
+  val attachmentKey: String,
+  val fileName: String,
+  val mimeType: String,
+  val fileSize: Long?,
+  val messageType: String
+)
+
 data class GroupMessage(
   val id: String,
+  val groupId: String = "",
+  val groupName: String? = null,
+  val senderId: String? = null,
   val senderName: String,
-  val senderRole: UserRole,
-  val text: String,
+  val senderRole: UserRole? = null,
+  val text: String? = null,
   val timestamp: String,
+  val messageType: String = "text",
+  val attachmentKey: String? = null,
+  val attachmentName: String? = null,
+  val mimeType: String? = null,
+  val fileSize: Long? = null,
+  val linkUrl: String? = null,
+  val isDeleted: Boolean = false,
+  val isRead: Boolean = false,
+  val updatedAt: String? = null,
   val isMe: Boolean = false,
-  val attachmentName: String? = null
+  val mediaUrl: String? = null,
+  val clientMessageId: String? = null
 )
 
 data class SyncLog(
