@@ -90,6 +90,12 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT,
     media_url TEXT,
     message_type TEXT NOT NULL DEFAULT 'text',
+    attachment_key TEXT,
+    file_name TEXT,
+    mime_type TEXT,
+    file_size INTEGER,
+    link_url TEXT,
+    client_message_id TEXT,
     is_deleted INTEGER DEFAULT 0,
     is_read INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -153,6 +159,9 @@ CREATE INDEX IF NOT EXISTS idx_group_members_is_active ON group_members(is_activ
 CREATE INDEX IF NOT EXISTS idx_messages_group_id ON messages(group_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_group_created_at ON messages(group_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_group_client_message ON messages(group_id, sender_id, client_message_id);
+CREATE INDEX IF NOT EXISTS idx_messages_attachment_key ON messages(attachment_key);
 CREATE INDEX IF NOT EXISTS idx_tasks_target_code ON tasks(target_code);
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
