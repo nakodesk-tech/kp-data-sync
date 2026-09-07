@@ -71,7 +71,34 @@ data class ChatGroup(
   val senderName: String,
   val unreadCount: Int = 0,
   val time: String,
-  val scope: String
+  val scope: String,
+  val groupType: String = "general",
+  val memberCount: Int = 0,
+  val photoKey: String? = null
+)
+
+data class GroupMemberCandidate(
+  val id: String,
+  val name: String,
+  val email: String,
+  val role: UserRole,
+  val clusterName: String,
+  val clusterCode: String,
+  val schoolName: String,
+  val schoolCode: String,
+  val status: String
+)
+
+data class GroupCreateResult(
+  val id: String,
+  val name: String,
+  val groupType: String,
+  val scopeType: String,
+  val clusterCode: String?,
+  val schoolCode: String?,
+  val description: String?,
+  val memberCount: Int,
+  val photoKey: String?
 )
 
 data class GroupMessage(
