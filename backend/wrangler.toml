@@ -23,6 +23,16 @@ migrations_dir = "migrations"
 binding = "R2_BUCKET"
 bucket_name = "kp-data-sync"
 
+# Durable Object: one realtime room per group.
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+# Durable Object deployment migration.
+[[migrations]]
+tag = "realtime-v1"
+new_sqlite_classes = ["ChatRoom"]
+
 # Observability and Logging
 [observability]
 enabled = true
