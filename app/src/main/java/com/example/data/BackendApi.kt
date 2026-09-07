@@ -28,6 +28,7 @@ object BackendApi {
   private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).writeTimeout(30, TimeUnit.SECONDS).build()
   private val jsonType = "application/json; charset=utf-8".toMediaType()
   @Volatile private var activeSession: UserSession? = null
+  @Volatile private var lastAuthenticatedToken: String = ""
 
   fun currentSession(): UserSession = activeSession ?: UserSession("", "", "", UserRole.Admin, token = "")
 
@@ -41,6 +42,7 @@ object BackendApi {
         val user = obj.getJSONObject("user")
         val session = UserSession(id = user.getString("id"), name = user.getString("name"), email = user.getString("email"), role = UserRole.values().first { it.roleName == user.getString("role") }, clusterName = user.optString("cluster_name").ifBlank { null }, clusterCode = user.optString("cluster_code").ifBlank { null }, schoolName = user.optString("school_name").ifBlank { null }, schoolCode = user.optString("school_code").ifBlank { null }, token = obj.getString("token"), status = user.optString("status", "active"))
         activeSession = session
+        lastAuthenticatedToken = session.token
         withContext(Dispatchers.Main) { onSuccess(session) }
       } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
     }
@@ -93,6 +95,7 @@ object BackendApi {
   }
 
   fun getGroups(token: String, onSuccess: (List<ChatGroup>) -> Unit, onError: (String) -> Unit) {
+    if (token.isNotBlank()) lastAuthenticatedToken = token
     CoroutineScope(Dispatchers.IO).launch {
       try {
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/groups").addHeader("Authorization", "Bearer $token").get().build()).execute()
@@ -156,7 +159,8 @@ object BackendApi {
     }
   }
 
-  fun getSchools(token: String, onSuccess: (List<SchoolRecord>) -> Unit, onError: (String) -> Unit) {
+  fun getSchools(onSuccess: (List<SchoolRecord>) -> Unit, onError: (String) -> Unit) {
+    val token = lastAuthenticatedToken.ifBlank { activeSession?.token.orEmpty() }
     if (token.isBlank()) { onError("Session expired. Please login again."); return }
     CoroutineScope(Dispatchers.IO).launch {
       try {
