@@ -33,8 +33,27 @@ object SyncRepository {
   )
 
   fun getMessagesForGroup(groupId: String): List<GroupMessage> = listOf(
-    GroupMessage("m1", "Cluster Head", UserRole.Cluster_Head, "Welcome everyone. Please ensure student enrollment spreadsheets are synchronized with Cloudflare R2 before 5:00 PM.", "09:30 AM"),
-    GroupMessage("m2", "School HM", UserRole.School_HM, "Noted sir. Our teachers have completed 90% verification on the D1 database.", "10:15 AM"),
-    GroupMessage("m3", "Test Teacher1", UserRole.Teacher, "Hello Sir! Just submitted Class 9 Attendance Excel via the R2 portal.", "11:45 AM", attachmentName = "Class9_Attendance_Report.xlsx")
+    GroupMessage(
+      id = "m1",
+      senderName = "Cluster Head",
+      senderRole = UserRole.Cluster_Head,
+      text = "Welcome everyone. Please ensure student enrollment spreadsheets are synchronized with Cloudflare R2 before 5:00 PM.",
+      timestamp = "09:30 AM"
+    ),
+    GroupMessage(
+      id = "m2",
+      senderName = "School HM",
+      senderRole = UserRole.School_HM,
+      text = "Noted sir. Our teachers have completed 90% verification on the D1 database.",
+      timestamp = "10:15 AM"
+    ),
+    GroupMessage(
+      id = "m3",
+      senderName = "Test Teacher1",
+      senderRole = UserRole.Teacher,
+      text = "Hello Sir! Just submitted Class 9 Attendance Excel via the R2 portal.",
+      timestamp = "11:45 AM",
+      attachmentName = "Class9_Attendance_Report.xlsx"
+    )
   )
 }
