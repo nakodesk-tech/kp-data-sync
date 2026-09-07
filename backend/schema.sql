@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS schools (
 
 -- 2. USERS TABLE
 -- Roles: Admin, Cluster_Head, School_HM, Teacher
--- Status: active, inactive, pending
+-- Status: Active, Inactive
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -42,21 +42,24 @@ CREATE TABLE IF NOT EXISTS users (
     school_name TEXT,
     school_code TEXT,
     address TEXT,
-    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'pending')),
+    status TEXT NOT NULL DEFAULT 'Active' CHECK(status IN ('Active', 'Inactive')),
     fcm_token TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 3. GROUPS TABLE
--- group_type describes the group category; cluster_code scopes cluster groups.
+-- group_type describes the group category. scope_type controls visibility.
 CREATE TABLE IF NOT EXISTS groups (
     id TEXT PRIMARY KEY,
     group_name TEXT NOT NULL,
     group_type TEXT NOT NULL,
     created_by TEXT NOT NULL,
     cluster_code TEXT,
+    school_code TEXT,
+    scope_type TEXT NOT NULL DEFAULT 'cluster',
     description TEXT,
+    photo_key TEXT,
     is_active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -64,7 +67,6 @@ CREATE TABLE IF NOT EXISTS groups (
 );
 
 -- 4. GROUP MEMBERS TABLE
--- Denormalized display fields are intentionally retained for efficient reads.
 CREATE TABLE IF NOT EXISTS group_members (
     id TEXT PRIMARY KEY,
     group_id TEXT NOT NULL,
@@ -131,9 +133,7 @@ CREATE TABLE IF NOT EXISTS reports (
     FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- ============================================================================
 -- PERFORMANCE INDEXES
--- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_schools_cluster_code ON schools(cluster_code);
 CREATE INDEX IF NOT EXISTS idx_schools_udise_code ON schools(udise_code);
 CREATE INDEX IF NOT EXISTS idx_schools_is_active ON schools(is_active);
@@ -144,6 +144,8 @@ CREATE INDEX IF NOT EXISTS idx_users_school_code ON users(school_code);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
 CREATE INDEX IF NOT EXISTS idx_groups_created_by ON groups(created_by);
 CREATE INDEX IF NOT EXISTS idx_groups_cluster_code ON groups(cluster_code);
+CREATE INDEX IF NOT EXISTS idx_groups_school_code ON groups(school_code);
+CREATE INDEX IF NOT EXISTS idx_groups_scope_type ON groups(scope_type);
 CREATE INDEX IF NOT EXISTS idx_groups_is_active ON groups(is_active);
 CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
