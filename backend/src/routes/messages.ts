@@ -37,7 +37,8 @@ async function groupAccess(db: D1Database, actor: any, groupId: string) {
   return { group, allowed: !!member };
 }
 
-messageRouter.use('/:id/*', authMiddleware());
+// All message, attachment and realtime routes require an authenticated session.
+messageRouter.use('*', authMiddleware());
 
 messageRouter.get('/:id', async (c) => {
   const actor = c.get('user');
@@ -114,17 +115,17 @@ messageRouter.post('/:id/attachment', async (c) => {
   }, 201);
 });
 
-messageRouter.get('/:id/attachment/:attachmentId', async (c) => {
+messageRouter.get('/:id/attachment/:messageId', async (c) => {
   const actor = c.get('user');
   const groupId = c.req.param('id');
-  const attachmentId = c.req.param('attachmentId');
+  const messageId = c.req.param('messageId');
   const access = await groupAccess(c.env.DB, actor, groupId);
   if (!access.group) return error(c, 'Group not found', 404);
   if (!access.allowed) return error(c, 'You do not have access to this group', 403);
 
   const message = await c.env.DB.prepare(`
     SELECT attachment_key FROM messages WHERE id = ? AND group_id = ? AND is_deleted = 0 LIMIT 1
-  `).bind(attachmentId, groupId).first<any>();
+  `).bind(messageId, groupId).first<any>();
   if (!message?.attachment_key) return error(c, 'Attachment not found', 404);
 
   const object = await c.env.R2_BUCKET.get(message.attachment_key);
