@@ -10,6 +10,12 @@ const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_MEMBERS = 200;
 
+type GroupPhotoFile = {
+  size: number;
+  type: string;
+  stream: () => ReadableStream<Uint8Array>;
+};
+
 function error(c: any, message: string, status = 400) {
   return c.json({ success: false, error: message }, status);
 }
@@ -85,8 +91,19 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
   const clusterCode = String(form.get('cluster_code') || '').trim() || null;
   const schoolCode = String(form.get('school_code') || '').trim() || null;
   const rawMembers = String(form.get('member_ids') || '[]');
-  const photo = form.get('photo');
-  const photoFile = photo !== null && typeof photo !== 'string' ? photo : null;
+  const photoValue: unknown = form.get('photo');
+  let photoFile: GroupPhotoFile | null = null;
+
+  if (photoValue !== null && typeof photoValue === 'object') {
+    const candidate = photoValue as Record<string, unknown>;
+    if (
+      typeof candidate.size === 'number' &&
+      typeof candidate.type === 'string' &&
+      typeof candidate.stream === 'function'
+    ) {
+      photoFile = photoValue as GroupPhotoFile;
+    }
+  }
 
   if (groupName.length < 2 || groupName.length > 80) return error(c, 'Group name must contain 2 to 80 characters');
   if (description.length > 500) return error(c, 'Group description cannot exceed 500 characters');
