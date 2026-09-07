@@ -2,7 +2,6 @@ package com.example.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -127,9 +126,29 @@ private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.Ima
 private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit) {
   var groups by remember { mutableStateOf(SyncRepository.initialGroups) }
   var searchQuery by remember { mutableStateOf("") }
-  var showCreateGroup by remember { mutableStateOf(false) }
-  var newGroupName by remember { mutableStateOf("") }
-  var newGroupScope by remember { mutableStateOf(defaultScope(session.role)) }
+  var showCreateGroupScreen by remember { mutableStateOf(false) }
+  var groupsLoading by remember { mutableStateOf(true) }
+  var groupLoadError by remember { mutableStateOf<String?>(null) }
+
+  LaunchedEffect(session.token) {
+    BackendApi.getGroups(
+      token = session.token,
+      onSuccess = { groups = it; groupsLoading = false; groupLoadError = null },
+      onError = { groupsLoading = false; groupLoadError = it }
+    )
+  }
+
+  if (showCreateGroupScreen) {
+    GroupCreateScreen(
+      session = session,
+      onBack = { showCreateGroupScreen = false },
+      onCreated = { createdGroup ->
+        groups = listOf(createdGroup) + groups
+        showCreateGroupScreen = false
+      }
+    )
+    return
+  }
 
   val visibleGroups = remember(groups, searchQuery, session.role) {
     val scoped = groups.filter { isGroupVisible(it, session) }
@@ -143,15 +162,13 @@ private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit) {
     verticalArrangement = Arrangement.spacedBy(10.dp),
     contentPadding = PaddingValues(top = 10.dp, bottom = 20.dp)
   ) {
-    if (session.role == UserRole.Admin) {
-      item { AdminDataSection(onOpenSchools = onOpenSchools) }
-    }
+    if (session.role == UserRole.Admin) item { AdminDataSection(onOpenSchools = onOpenSchools) }
 
     item {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         Text("Chats", fontSize = 22.sp, fontWeight = FontWeight.Black, color = HighDensityOnBackground)
-        if (session.role != UserRole.Teacher) {
-          TextButton(onClick = { newGroupName = ""; newGroupScope = defaultScope(session.role); showCreateGroup = true }) {
+        if (session.role == UserRole.Admin || session.role == UserRole.Cluster_Head) {
+          TextButton(onClick = { showCreateGroupScreen = true }) {
             Icon(Icons.Default.GroupAdd, null, tint = HighDensityPrimary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
             Text("नवीन ग्रुप तयार करा", color = HighDensityPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
@@ -173,38 +190,13 @@ private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit) {
       )
     }
 
-    if (visibleGroups.isEmpty()) {
-      item { EmptyCard(if (searchQuery.isBlank()) "आपल्या भूमिकेसाठी सध्या कोणतेही Chats उपलब्ध नाहीत." else "दिलेल्या शोधासाठी Chat सापडला नाही.") }
+    if (groupsLoading) {
+      item { Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(28.dp), color = HighDensityPrimary) } }
+    } else if (visibleGroups.isEmpty()) {
+      item { EmptyCard(if (groupLoadError != null && groups.isEmpty()) "Chats load करता आले नाहीत. कृपया पुन्हा प्रयत्न करा." else if (searchQuery.isBlank()) "आपल्या भूमिकेसाठी सध्या कोणतेही Chats उपलब्ध नाहीत." else "दिलेल्या शोधासाठी Chat सापडला नाही.") }
     } else {
-      items(visibleGroups, key = { it.id }) { group ->
-        ChatRow(group)
-      }
+      items(visibleGroups, key = { it.id }) { group -> ChatRow(group) }
     }
-  }
-
-  if (showCreateGroup) {
-    AlertDialog(
-      onDismissRequest = { showCreateGroup = false },
-      title = { Text("नवीन ग्रुप तयार करा") },
-      text = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          OutlinedTextField(newGroupName, { newGroupName = it }, label = { Text("ग्रुपचे नाव") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-          Text("ग्रुप scope", fontWeight = FontWeight.Bold)
-          Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            allowedScopes(session.role).forEach { scope ->
-              FilterChip(selected = newGroupScope == scope, onClick = { newGroupScope = scope }, label = { Text(scopeLabel(scope), fontSize = 11.sp) })
-            }
-          }
-        }
-      },
-      confirmButton = {
-        TextButton(enabled = newGroupName.isNotBlank(), onClick = {
-          groups = listOf(ChatGroup("grp-${System.currentTimeMillis()}", newGroupName.trim(), "नवीन ग्रुप तयार झाला", session.name, time = "आत्ताच", scope = newGroupScope)) + groups
-          showCreateGroup = false
-        }) { Text("तयार करा") }
-      },
-      dismissButton = { TextButton(onClick = { showCreateGroup = false }) { Text("रद्द करा") } }
-    )
   }
 }
 
@@ -224,36 +216,15 @@ private fun AdminDataSection(onOpenSchools: () -> Unit) {
     Text("System Overview", fontSize = 20.sp, fontWeight = FontWeight.Black, color = HighDensityOnBackground)
     Text("App Admin साठी उपलब्ध system data", fontSize = 11.sp, color = Color(0xFF64748B))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-      AdminMetricCard(
-        modifier = Modifier.weight(1f),
-        icon = Icons.Default.School,
-        tag = "D1 SYNC",
-        value = if (loading) "…" else (schoolCount?.toString() ?: "—"),
-        label = "ACTIVE SCHOOLS",
-        onClick = onOpenSchools,
-        action = "शाळा डेटा पहा"
-      )
-      AdminMetricCard(
-        modifier = Modifier.weight(1f),
-        icon = Icons.Default.CloudUpload,
-        tag = "R2 STORAGE",
-        value = "R2",
-        label = "FILE STORAGE",
-        onClick = { },
-        action = "Attachments / files"
-      )
+      AdminMetricCard(Modifier.weight(1f), Icons.Default.School, "D1 SYNC", if (loading) "…" else (schoolCount?.toString() ?: "—"), "ACTIVE SCHOOLS", onOpenSchools, "शाळा डेटा पहा")
+      AdminMetricCard(Modifier.weight(1f), Icons.Default.CloudUpload, "R2 STORAGE", "R2", "FILE STORAGE", { }, "Attachments / files")
     }
   }
 }
 
 @Composable
 private fun AdminMetricCard(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, tag: String, value: String, label: String, onClick: () -> Unit, action: String) {
-  Surface(
-    modifier = modifier.clickable(onClick = onClick),
-    shape = RoundedCornerShape(22.dp),
-    color = if (tag == "D1 SYNC") Color(0xFFE7F0FB) else Color(0xFFE6F7EC),
-    border = androidx.compose.foundation.BorderStroke(1.dp, if (tag == "D1 SYNC") Color(0xFFB7D3F2) else Color(0xFFB9E9C9))
-  ) {
+  Surface(modifier.clickable(onClick = onClick), RoundedCornerShape(22.dp), color = if (tag == "D1 SYNC") Color(0xFFE7F0FB) else Color(0xFFE6F7EC), border = androidx.compose.foundation.BorderStroke(1.dp, if (tag == "D1 SYNC") Color(0xFFB7D3F2) else Color(0xFFB9E9C9))) {
     Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = HighDensityPrimary, modifier = Modifier.size(22.dp))
@@ -270,51 +241,32 @@ private fun AdminMetricCard(modifier: Modifier, icon: androidx.compose.ui.graphi
 private fun ChatRow(group: ChatGroup) {
   Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color.White, tonalElevation = 1.dp) {
     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-      Box(Modifier.size(46.dp).clip(CircleShape).background(HighDensityPrimaryContainer), contentAlignment = Alignment.Center) {
-        Icon(Icons.Default.Groups, null, tint = HighDensityPrimary)
-      }
+      Box(Modifier.size(46.dp).clip(CircleShape).background(HighDensityPrimaryContainer), contentAlignment = Alignment.Center) { Icon(Icons.Default.Groups, null, tint = HighDensityPrimary) }
       Spacer(Modifier.width(12.dp))
       Column(Modifier.weight(1f)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
           Text(group.name, fontWeight = FontWeight.Bold, color = HighDensityOnBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
           Text(group.time, fontSize = 10.sp, color = Color(0xFF94A3B8))
         }
-        Text(group.lastMessage, fontSize = 11.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("${group.senderName} • ${scopeLabel(group.scope)}", fontSize = 9.sp, color = HighDensityPrimary, fontWeight = FontWeight.SemiBold)
+        Text(if (group.lastMessage.isBlank()) "${group.memberCount} सदस्य" else group.lastMessage, fontSize = 11.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${group.memberCount} सदस्य • ${scopeLabel(group.scope)}", fontSize = 9.sp, color = HighDensityPrimary, fontWeight = FontWeight.SemiBold)
       }
-      if (group.unreadCount > 0) {
-        Spacer(Modifier.width(6.dp))
-        Badge(containerColor = HighDensityPrimary) { Text(group.unreadCount.toString()) }
-      }
+      if (group.unreadCount > 0) { Spacer(Modifier.width(6.dp)); Badge(containerColor = HighDensityPrimary) { Text(group.unreadCount.toString()) } }
     }
   }
 }
 
 private fun isGroupVisible(group: ChatGroup, session: UserSession): Boolean = when (session.role) {
   UserRole.Admin -> true
-  UserRole.Cluster_Head -> group.scope in setOf("cluster", "administrative", "general")
-  UserRole.School_HM -> group.scope in setOf("school", "general")
-  UserRole.Teacher -> group.scope in setOf("school", "general")
-}
-
-private fun allowedScopes(role: UserRole): List<String> = when (role) {
-  UserRole.Admin -> listOf("administrative", "cluster", "school", "general")
-  UserRole.Cluster_Head -> listOf("cluster", "general")
-  UserRole.School_HM -> listOf("school", "general")
-  UserRole.Teacher -> emptyList()
-}
-
-private fun defaultScope(role: UserRole): String = when (role) {
-  UserRole.Admin -> "administrative"
-  UserRole.Cluster_Head -> "cluster"
-  UserRole.School_HM, UserRole.Teacher -> "school"
+  UserRole.Cluster_Head -> group.scope == "cluster" && group.scope == session.clusterCode || group.scope == "cluster"
+  UserRole.School_HM, UserRole.Teacher -> group.scope == "school" || group.scope == "system"
 }
 
 private fun scopeLabel(scope: String): String = when (scope) {
-  "administrative" -> "Admin"
-  "cluster" -> "Cluster"
-  "school" -> "School"
-  else -> "General"
+  "system" -> "संपूर्ण प्रणाली"
+  "cluster" -> "केंद्र"
+  "school" -> "शाळा"
+  else -> scope
 }
 
 @Composable
