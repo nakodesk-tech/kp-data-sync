@@ -26,7 +26,7 @@ fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole, onUpload
   var search by remember { mutableStateOf("") }; var filter by remember { mutableStateOf("all") }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf<String?>(null) }; var editing by remember { mutableStateOf<SchoolRecord?>(null) }; var deleting by remember { mutableStateOf<SchoolRecord?>(null) }; var busy by remember { mutableStateOf<String?>(null) }; var add by remember { mutableStateOf(false) }
   val canAdd = userRole == UserRole.Admin || userRole == UserRole.Cluster_Head
   val canManage = userRole == UserRole.Admin
-  fun reload() { loading = true; error = null; BackendApi.getSchools({ records = it; loading = false }, { error = it; loading = false }) }
+  fun reload() { loading = true; error = null; BackendApi.getSchools(BackendApi.currentSession().token, { records = it; loading = false }, { error = it; loading = false }) }
   LaunchedEffect(userRole) { reload() }
   val filtered = records.filter { s -> (filter == "all" || if (filter == "active") s.isActive else !s.isActive) && (search.isBlank() || listOf(s.schoolName, s.udiseCode, s.clusterName, s.clusterCode, s.hmName).any { it.contains(search.trim(), true) }) }
   if (add) { SchoolRegistrationScreen(BackendApi.currentSession(), { add = false }, { add = false; reload() }); return }
