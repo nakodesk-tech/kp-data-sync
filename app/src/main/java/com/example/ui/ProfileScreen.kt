@@ -152,7 +152,7 @@ private fun ProfileDetails(session: UserSession) {
   Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp), RoundedCornerShape(16.dp), color = Color.White, tonalElevation = 1.dp) {
     Column {
       ProfileInfoRow(Icons.Default.Email, "ईमेल", session.email)
-      ProfileInfoRow(Icons.Default.Phone, "मोबाईल", "नोंदणीकृत मोबाईल")
+      ProfileInfoRow(Icons.Default.Phone, "मोबाईल", session.mobile ?: "नोंद उपलब्ध नाही")
       ProfileInfoRow(Icons.Default.Shield, "भूमिका", session.role.displayName)
       ProfileInfoRow(Icons.Default.AccountBalance, "केंद्र", session.clusterName ?: "नोंद उपलब्ध नाही")
       ProfileInfoRow(Icons.Default.School, "शाळा", session.schoolName ?: "नोंद उपलब्ध नाही", true)
@@ -244,7 +244,7 @@ private fun roleQuote(role: UserRole): String = when (role) {
 private fun ProfileDialogHost(dialog: ProfileDialog, session: UserSession, onDismiss: () -> Unit) {
   when (dialog) {
     ProfileDialog.Settings -> InfoDialog("System Settings", "अॅप सेटिंग्ज खाते व्यवस्थापनातून नियंत्रित करता येतील.", onDismiss)
-    ProfileDialog.Personal -> InfoDialog("वैयक्तिक माहिती", "नाव: ${session.name}\nईमेल: ${session.email}\nभूमिका: ${session.role.displayName}\nकेंद्र: ${session.clusterName ?: "नोंद उपलब्ध नाही"}\nशाळा: ${session.schoolName ?: "नोंद उपलब्ध नाही"}", onDismiss)
+    ProfileDialog.Personal -> InfoDialog("वैयक्तिक माहिती", "नाव: ${session.name}\nईमेल: ${session.email}\nभूमिका: ${session.role.displayName}\nमोबाईल: ${session.mobile ?: "नोंद उपलब्ध नाही"}\nकेंद्र: ${session.clusterName ?: "नोंद उपलब्ध नाही"}\nशाळा: ${session.schoolName ?: "नोंद उपलब्ध नाही"}", onDismiss)
     ProfileDialog.Password -> InfoDialog("पासवर्ड बदला", "सुरक्षित खाते प्रक्रिया वापरून पासवर्ड बदलता येईल. सध्या backend password-change endpoint उपलब्ध नसल्याने येथे कोणताही खोटा बदल केला जात नाही.", onDismiss)
     ProfileDialog.Notifications -> NotificationSettingsDialog(onDismiss)
     ProfileDialog.Language -> LanguageDialog(onDismiss)
