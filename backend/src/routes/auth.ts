@@ -30,7 +30,7 @@ authRouter.post('/login', async (c) => {
     if (!secret) return c.json({ success: false, error: 'Server configuration error: JWT_SECRET is not configured' }, 500);
     const now = Math.floor(Date.now() / 1000);
     const token = await signJWT({ sub: user.id, id: user.id, name: user.name, email: user.email, role: user.role, cluster_name: user.cluster_name, cluster_code: user.cluster_code, school_name: user.school_name, school_code: user.school_code, iat: now, exp: now + 7 * 24 * 60 * 60 }, secret);
-    return c.json({ success: true, message: 'Login successful', token, user: { id: user.id, name: user.name, email: user.email, role: user.role, cluster_name: user.cluster_name, cluster_code: user.cluster_code, school_name: user.school_name, school_code: user.school_code, status: user.status } });
+    return c.json({ success: true, message: 'Login successful', token, user: { id: user.id, name: user.name, email: user.email, role: user.role, mobile_number: user.mobile_number, cluster_name: user.cluster_name, cluster_code: user.cluster_code, school_name: user.school_name, school_code: user.school_code, status: user.status } });
   } catch (error: any) {
     console.error('LOGIN_ERROR:', error);
     return c.json({ success: false, error: error.message || 'Internal server error during authentication' }, 500);
