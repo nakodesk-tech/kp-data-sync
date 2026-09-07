@@ -104,7 +104,13 @@ fun DashboardScreen(
         DashboardTab.Chats -> ChatsContent(session = session, onOpenSchools = { currentTab = DashboardTab.Schools }, onOpenChat = { activeChatGroup = it })
         DashboardTab.Schools -> SchoolsTabContent(SchoolDirectorySeed(), session.role) { }
         DashboardTab.Users -> UsersTabContent(session = session, onRegisterUser = onRegisterUser)
-        DashboardTab.Profile -> ProfileContent(session, onLogout)
+        DashboardTab.Profile -> ProfileScreen(
+          session = session,
+          onLogout = onLogout,
+          onOpenSchools = { currentTab = DashboardTab.Schools },
+          onOpenUsers = { currentTab = DashboardTab.Users },
+          onOpenChats = { currentTab = DashboardTab.Chats }
+        )
       }
     }
   }
