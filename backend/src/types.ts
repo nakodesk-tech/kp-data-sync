@@ -3,6 +3,7 @@ export type UserRole = 'Admin' | 'Cluster_Head' | 'School_HM' | 'Teacher';
 export interface Bindings {
   DB: D1Database;
   R2_BUCKET: R2Bucket;
+  CHAT_ROOM: DurableObjectNamespace;
   JWT_SECRET?: string;
   SETUP_SECRET?: string;
   ENVIRONMENT?: string;
