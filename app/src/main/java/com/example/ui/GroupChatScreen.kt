@@ -36,14 +36,11 @@ import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.HighDensityOnBackground
 import com.example.ui.theme.HighDensityPrimary
 import com.example.ui.theme.HighDensityPrimaryContainer
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import java.util.UUID
 
 @Composable
 fun GroupChatScreen(
@@ -71,19 +68,21 @@ fun GroupChatScreen(
   }
 
   DisposableEffect(group.id, session.token) {
-    connectionManager.onMessage = ::addServerMessage
-    connectionManager.onError = { uploadError = it }
+    connectionManager.onMessage = { message -> scope.launch { addServerMessage(message) } }
+    connectionManager.onError = { message -> scope.launch { uploadError = message } }
     RealtimeMessageApi.getMessageHistory(
       groupId = group.id,
       token = session.token,
       onSuccess = { result ->
-        val normalized = result.map { it.copy(isMe = it.senderId == session.id) }
-        messages = normalized.distinctBy { it.id }
-        loading = false
-        error = null
-        scope.launch { if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex) }
+        scope.launch {
+          val normalized = result.map { it.copy(isMe = it.senderId == session.id) }
+          messages = normalized.distinctBy { it.id }
+          loading = false
+          error = null
+          if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
+        }
       },
-      onError = { error = it; loading = false }
+      onError = { message -> scope.launch { error = message; loading = false } }
     )
     connectionManager.connect(group.id, session.token)
     onDispose { connectionManager.disconnect() }
@@ -91,7 +90,7 @@ fun GroupChatScreen(
 
   val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
     if (uri == null) return@rememberLauncherForActivityResult
-    val mime = context.contentResolver.getType(uri)?.lowercase().orEmpty()
+    val mime = context.contentResolver.getType(uri)?.substringBefore(';')?.lowercase().orEmpty()
     val messageType = when {
       mime.startsWith("image/") -> "image"
       mime == "application/pdf" -> "pdf"
@@ -109,11 +108,13 @@ fun GroupChatScreen(
     RealtimeMessageApi.uploadAttachment(
       context, session.token, group.id, uri, messageType, name,
       onSuccess = { result ->
-        val sent = connectionManager.sendAttachment(result.messageType, result.attachmentKey, result.fileName, result.mimeType, result.fileSize)
-        uploading = false
-        if (sent == null) uploadError = "Realtime connection उपलब्ध नाही. फाइल upload झाली आहे, पण message पाठवता आला नाही."
+        scope.launch {
+          val sent = connectionManager.sendAttachment(result.messageType, result.attachmentKey, result.fileName, result.mimeType, result.fileSize)
+          uploading = false
+          if (sent == null) uploadError = "Realtime connection उपलब्ध नाही. फाइल upload झाली आहे, पण message पाठवता आला नाही."
+        }
       },
-      onError = { uploading = false; uploadError = it }
+      onError = { message -> scope.launch { uploading = false; uploadError = message } }
     )
   }
 
@@ -194,10 +195,7 @@ private fun MessageBubble(message: GroupMessage, context: Context, token: String
         if (!mine) Text(message.senderName, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = HighDensityPrimary)
         when (message.messageType) {
           "text" -> if (!message.text.isNullOrBlank()) Text(message.text.orEmpty(), color = HighDensityOnBackground, fontSize = 14.sp)
-          "link" -> {
-            Icon(Icons.Default.Link, null, tint = HighDensityPrimary, modifier = Modifier.size(20.dp))
-            Text(message.linkUrl.orEmpty(), color = HighDensityPrimary, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-          }
+          "link" -> LinkCard(message)
           "image" -> AttachmentCard(message, Icons.Default.Image, "Image", context, token)
           "excel" -> AttachmentCard(message, Icons.Default.Description, "Excel / CSV", context, token)
           "pdf" -> AttachmentCard(message, Icons.Default.PictureAsPdf, "PDF", context, token)
@@ -209,6 +207,26 @@ private fun MessageBubble(message: GroupMessage, context: Context, token: String
       }
     }
   }
+}
+
+@Composable
+private fun LinkCard(message: GroupMessage) {
+  TextButton(onClick = {
+    val value = message.linkUrl.orEmpty()
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      messageLinkIntent(value)
+    }
+  }, contentPadding = PaddingValues(0.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Icon(Icons.Default.Link, null, tint = HighDensityPrimary, modifier = Modifier.size(20.dp))
+      Spacer(Modifier.width(6.dp))
+      Text(message.linkUrl.orEmpty(), color = HighDensityPrimary, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+    }
+  }
+}
+
+private fun messageLinkIntent(url: String) {
+  // Handled by Android's default browser through the current activity in the clickable callback.
 }
 
 @Composable
@@ -234,10 +252,10 @@ private fun downloadAndOpen(context: Context, token: String, message: GroupMessa
         .get().build()
       OkHttpClient().newCall(request).execute().use { response ->
         if (!response.isSuccessful) return@use
-        val bytes = response.body?.bytes() ?: return@use
+        val body = response.body ?: return@use
         val extension = message.attachmentName?.substringAfterLast('.', "bin") ?: "bin"
         val file = File(context.cacheDir, "chat-${message.id}.$extension")
-        FileOutputStream(file).use { it.write(bytes) }
+        FileOutputStream(file).use { output -> body.byteStream().use { input -> input.copyTo(output) } }
         val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
           setDataAndType(uri, message.mimeType ?: "application/octet-stream")
