@@ -6,10 +6,11 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,6 +48,7 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
   var uploading by remember(group.id) { mutableStateOf(false) }
   var selectedIds by remember(group.id) { mutableStateOf<Set<String>>(emptySet()) }
   var showMediaSheet by remember { mutableStateOf(false) }
+  var showEmojiSheet by remember { mutableStateOf(false) }
   var showGroupInfo by remember { mutableStateOf(false) }
   val connectionManager = remember(group.id, session.token) { RealtimeChatManager() }
   val connectionState by connectionManager.state.collectAsState()
@@ -118,9 +120,21 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
           cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
           cameraPicker.launch(cameraUri!!)
         }
-        MediaAction("Emoji", Icons.Default.EmojiEmotions, HighDensityPrimary) { showMediaSheet = false; input += "🙂" }
+        MediaAction("Emoji", Icons.Default.EmojiEmotions, HighDensityPrimary) { showMediaSheet = false; showEmojiSheet = true }
       }
       Spacer(Modifier.height(8.dp))
+    }
+  }
+
+  if (showEmojiSheet) ModalBottomSheet(onDismissRequest = { showEmojiSheet = false }) {
+    Column(Modifier.fillMaxWidth().padding(18.dp)) {
+      Text("Emoji", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+      Spacer(Modifier.height(12.dp))
+      val emojis = listOf("😀","😃","😄","😁","😆","😅","😂","🤣","😊","🙂","🙃","😉","😌","😍","🥰","😘","😎","🤔","👍","👏","🙏","❤️","🎉","🔥","✅","⭐","📚","🏫","📌","💡","🙂","😢","😮","😡")
+      emojis.chunked(7).forEach { row ->
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { row.forEach { emoji -> Text(emoji, Modifier.clickable { input += emoji; showEmojiSheet = false }.padding(8.dp), fontSize = 26.sp) } }
+      }
+      Spacer(Modifier.height(12.dp))
     }
   }
 
@@ -147,15 +161,17 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     if (connectionState == ChatConnectionState.Reconnecting || connectionState == ChatConnectionState.Connecting) LinearProgressIndicator(Modifier.fillMaxWidth(), color = HighDensityPrimary)
     if (error != null && messages.isEmpty()) Surface(Modifier.fillMaxWidth().padding(12.dp), RoundedCornerShape(14.dp), color = Color(0xFFFFF7ED)) { Text(error.orEmpty(), Modifier.padding(14.dp), color = Color(0xFF9A3412), fontSize = 12.sp) }
 
+    val firstUnreadIndex = messages.indexOfFirst { !it.isMe && !it.isRead }
     LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
       if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(26.dp), color = HighDensityPrimary) } }
-      var previousDate = ""
-      var unreadDividerShown = false
-      items(messages, key = { it.id }) { message ->
+      itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
         val date = formatDate(message.timestamp)
-        if (date != previousDate) { item(key = "date-$date") { DateDivider(date) }; previousDate = date }
-        if (!message.isMe && !message.isRead && !unreadDividerShown) { item(key = "unread-${message.id}") { UnreadDivider() }; unreadDividerShown = true }
-        MessageBubble(message, context, session.token, selectedIds.contains(message.id), onLongPress = { selectedIds = if (selectedIds.contains(message.id)) selectedIds - message.id else selectedIds + message.id })
+        val showDate = index == 0 || formatDate(messages[index - 1].timestamp) != date
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+          if (showDate) DateDivider(date)
+          if (index == firstUnreadIndex) UnreadDivider()
+          MessageBubble(message, context, session.token, selectedIds.contains(message.id), onLongPress = { selectedIds = if (selectedIds.contains(message.id)) selectedIds - message.id else selectedIds + message.id })
+        }
       }
     }
 
