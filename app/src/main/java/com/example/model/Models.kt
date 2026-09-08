@@ -90,6 +90,28 @@ data class GroupMemberCandidate(
   val status: String
 )
 
+data class GroupMember(
+  val id: String,
+  val name: String,
+  val email: String,
+  val role: UserRole,
+  val roleInGroup: String
+)
+
+data class GroupInfo(
+  val id: String,
+  val name: String,
+  val description: String?,
+  val groupType: String,
+  val scopeType: String,
+  val clusterCode: String?,
+  val schoolCode: String?,
+  val createdBy: String,
+  val createdAt: String,
+  val memberCount: Int,
+  val members: List<GroupMember>
+)
+
 data class GroupCreateResult(
   val id: String,
   val name: String,
