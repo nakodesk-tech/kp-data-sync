@@ -18,7 +18,7 @@ async function getFile(db: D1Database, groupId: string, messageId: string) {
 }
 
 async function groupAccess(db: D1Database, actor: any, groupId: string) {
-  const group = await db.prepare('SELECT id, scope_type, cluster_code, created_by, is_active FROM groups WHERE id = ? LIMIT 1').bind(groupId).first<any>();
+  const group = await db.prepare('SELECT id, group_name, scope_type, cluster_code, created_by, is_active FROM groups WHERE id = ? LIMIT 1').bind(groupId).first<any>();
   if (!group || group.is_active !== 1) return { group: null, allowed: false };
   if (actor.role === 'Admin') return { group, allowed: true };
   if (actor.role === 'Cluster_Head') return { group, allowed: group.scope_type === 'cluster' && group.cluster_code === actor.cluster_code };
@@ -66,8 +66,6 @@ excelRouter.post('/reports/upload', async (c) => {
   }
 });
 
-// Save the current workbook bytes back to the same R2 object. During group collection,
-// every active member may save; after publication only Admin/Cluster Head may save.
 excelRouter.put('/:groupId/:messageId', async (c) => {
   const actor = c.get('user');
   const groupId = c.req.param('groupId');
@@ -93,7 +91,6 @@ excelRouter.put('/:groupId/:messageId', async (c) => {
   return c.json({ success: true, data: { version: nextVersion, file_size: object?.size || contentLength || null, status: file.excel_status } });
 });
 
-// Publish a group workbook to the Reports tab. Publishing freezes normal group editing.
 excelRouter.post('/:groupId/:messageId/publish', async (c) => {
   const actor = c.get('user');
   if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can send Excel to Reports', 403);
@@ -107,7 +104,6 @@ excelRouter.post('/:groupId/:messageId/publish', async (c) => {
   return c.json({ success: true, data: { status: 'published', published_at: new Date().toISOString(), published_by: actor.id } });
 });
 
-// Reports are intentionally global after publication: every registered user can access them.
 excelRouter.get('/reports', async (c) => {
   const result = await c.env.DB.prepare(`SELECT m.id, m.group_id, m.group_name, m.sender_name, m.attachment_key, m.file_name, m.mime_type, m.file_size, m.excel_version, m.excel_published_at, m.excel_published_by, m.created_at, m.updated_at FROM messages m WHERE m.message_type IN ('excel', 'pdf') AND m.excel_status = 'published' AND m.is_deleted = 0 ORDER BY COALESCE(m.excel_published_at, m.created_at) DESC LIMIT 200`).all();
   return c.json({ success: true, data: result.results || [] });
