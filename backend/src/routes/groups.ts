@@ -36,6 +36,11 @@ async function canAccessGroup(db: D1Database, actor: any, groupId: string) {
   return { group, allowed: false };
 }
 
+async function isOwner(db: D1Database, actor: any, groupId: string) {
+  const group = await db.prepare('SELECT id, created_by, is_active FROM groups WHERE id = ? LIMIT 1').bind(groupId).first<any>();
+  return !!group && group.is_active === 1 && group.created_by === actor.id;
+}
+
 // Role-scoped group directory. Members can see groups they belong to; Admin sees all;
 // Cluster Head sees groups in the assigned cluster.
 groupRouter.get('/', authMiddleware(), async (c) => {
@@ -74,15 +79,10 @@ groupRouter.get('/', authMiddleware(), async (c) => {
   }
 });
 
-// Full group creation endpoint. The optional avatar is uploaded to R2 in the same request.
 groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
   const actor = c.get('user');
   let form: FormData;
-  try {
-    form = await c.req.formData();
-  } catch {
-    return error(c, 'Invalid multipart form data');
-  }
+  try { form = await c.req.formData(); } catch { return error(c, 'Invalid multipart form data'); }
 
   const groupName = String(form.get('group_name') || '').trim();
   const description = String(form.get('description') || '').trim();
@@ -96,15 +96,8 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
 
   if (photoValue !== null && typeof photoValue === 'object') {
     const candidate = photoValue as Record<string, unknown>;
-    if (
-      typeof candidate.size === 'number' &&
-      typeof candidate.type === 'string' &&
-      typeof candidate.stream === 'function'
-    ) {
-      photoFile = photoValue as GroupPhotoFile;
-    }
+    if (typeof candidate.size === 'number' && typeof candidate.type === 'string' && typeof candidate.stream === 'function') photoFile = photoValue as GroupPhotoFile;
   }
-
   if (groupName.length < 2 || groupName.length > 80) return error(c, 'Group name must contain 2 to 80 characters');
   if (description.length > 500) return error(c, 'Group description cannot exceed 500 characters');
   if (!ALLOWED_GROUP_TYPES.has(groupType)) return error(c, 'Invalid group type');
@@ -115,12 +108,9 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
     const parsed = JSON.parse(rawMembers);
     if (!Array.isArray(parsed)) return error(c, 'Member selection is invalid');
     memberIds = [...new Set(parsed.map((id) => String(id).trim()).filter(Boolean))];
-  } catch {
-    return error(c, 'Member selection is invalid');
-  }
+  } catch { return error(c, 'Member selection is invalid'); }
   if (memberIds.length > MAX_MEMBERS) return error(c, `A group can contain at most ${MAX_MEMBERS} selected members`);
 
-  // Cluster Head is always restricted to exactly their assigned cluster.
   let effectiveScope = requestedScope;
   let effectiveClusterCode = clusterCode;
   let effectiveSchoolCode = schoolCode;
@@ -130,17 +120,14 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
     effectiveSchoolCode = null;
     if (!effectiveClusterCode) return error(c, 'Your account has no assigned cluster. Group creation is unavailable until the cluster mapping is fixed.', 403);
   }
-
   if (effectiveScope === 'system') {
     if (actor.role !== 'Admin') return error(c, 'Only App Admin can create a system-wide group', 403);
-    effectiveClusterCode = null;
-    effectiveSchoolCode = null;
+    effectiveClusterCode = null; effectiveSchoolCode = null;
   }
   if (effectiveScope === 'cluster' && !effectiveClusterCode) return error(c, 'Cluster Code is required for a cluster group');
   if (effectiveScope === 'school' && !effectiveSchoolCode) return error(c, 'School / UDISE Code is required for a school group');
 
   try {
-    // Validate the selected scope against the live school master where applicable.
     if (effectiveScope === 'cluster') {
       const cluster = await c.env.DB.prepare('SELECT 1 FROM schools WHERE cluster_code = ? AND is_active = 1 LIMIT 1').bind(effectiveClusterCode).first();
       if (!cluster) return error(c, 'The selected cluster has no active registered schools', 400);
@@ -148,17 +135,13 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
     if (effectiveScope === 'school') {
       const school = await c.env.DB.prepare('SELECT udise_code, cluster_code, is_active FROM schools WHERE udise_code = ? OR id = ? LIMIT 1').bind(effectiveSchoolCode, effectiveSchoolCode).first<any>();
       if (!school || school.is_active !== 1) return error(c, 'Selected school is not an active registered school', 400);
-      effectiveSchoolCode = school.udise_code || effectiveSchoolCode;
-      effectiveClusterCode = school.cluster_code || null;
+      effectiveSchoolCode = school.udise_code || effectiveSchoolCode; effectiveClusterCode = school.cluster_code || null;
       if (!effectiveClusterCode) return error(c, 'Selected school has no Cluster Code', 400);
       if (actor.role === 'Cluster_Head' && effectiveClusterCode !== actor.cluster_code) return error(c, 'Selected school is outside your assigned cluster', 403);
     }
 
-    // The creator is always an owner/member. Additional members must be active users
-    // and must fall inside the requested scope.
     const allMemberIds = [...new Set([actor.id, ...memberIds])];
     if (allMemberIds.length > MAX_MEMBERS + 1) return error(c, `A group can contain at most ${MAX_MEMBERS} selected members`);
-
     const placeholders = allMemberIds.map(() => '?').join(',');
     const users = await c.env.DB.prepare(`SELECT id, name, role, cluster_code, school_code, status FROM users WHERE id IN (${placeholders})`).bind(...allMemberIds).all<any>();
     const userRows = users.results || [];
@@ -171,7 +154,6 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
       if (effectiveScope === 'cluster' && user.cluster_code !== effectiveClusterCode) return error(c, `User '${user.name}' is outside the selected cluster`, 400);
       if (effectiveScope === 'school' && user.school_code !== effectiveSchoolCode) return error(c, `User '${user.name}' is outside the selected school`, 400);
     }
-
     if (photoFile && photoFile.size > 0) {
       if (!ALLOWED_PHOTO_TYPES.has(photoFile.type)) return error(c, 'Group photo must be JPG, PNG or WebP');
       if (photoFile.size > MAX_PHOTO_BYTES) return error(c, 'Group photo must be 5 MB or smaller');
@@ -182,59 +164,105 @@ groupRouter.post('/', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
     if (photoFile && photoFile.size > 0) {
       const extension = photoFile.type === 'image/png' ? 'png' : photoFile.type === 'image/webp' ? 'webp' : 'jpg';
       photoKey = `groups/${groupId}/avatar.${extension}`;
-      await c.env.R2_BUCKET.put(photoKey, photoFile.stream(), {
-        httpMetadata: { contentType: photoFile.type, cacheControl: 'public, max-age=31536000, immutable' },
-        customMetadata: { groupId, uploadedBy: actor.id }
-      });
+      await c.env.R2_BUCKET.put(photoKey, photoFile.stream(), { httpMetadata: { contentType: photoFile.type, cacheControl: 'public, max-age=31536000, immutable' }, customMetadata: { groupId, uploadedBy: actor.id } });
     }
-
     try {
-      // D1 batch makes group + membership creation atomic: if any membership insert fails,
-      // the group insert is rolled back as well.
-      const statements: D1PreparedStatement[] = [
-        c.env.DB.prepare(`
-          INSERT INTO groups (id, group_name, group_type, created_by, cluster_code, school_code, scope_type, description, photo_key, is_active)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        `).bind(groupId, groupName, groupType, actor.id, effectiveClusterCode, effectiveSchoolCode, effectiveScope, description || null, photoKey)
-      ];
-
-      for (const user of userRows) {
-        statements.push(c.env.DB.prepare(`
-          INSERT INTO group_members (id, group_id, group_name, user_id, user_name, role_in_group, is_active)
-          VALUES (?, ?, ?, ?, ?, ?, 1)
-        `).bind(`gm-${crypto.randomUUID()}`, groupId, groupName, user.id, user.name, user.id === actor.id ? 'owner' : 'member'));
-      }
-
+      const statements: D1PreparedStatement[] = [c.env.DB.prepare(`INSERT INTO groups (id, group_name, group_type, created_by, cluster_code, school_code, scope_type, description, photo_key, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`).bind(groupId, groupName, groupType, actor.id, effectiveClusterCode, effectiveSchoolCode, effectiveScope, description || null, photoKey)];
+      for (const user of userRows) statements.push(c.env.DB.prepare(`INSERT INTO group_members (id, group_id, group_name, user_id, user_name, role_in_group, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)`).bind(`gm-${crypto.randomUUID()}`, groupId, groupName, user.id, user.name, user.id === actor.id ? 'owner' : 'member'));
       await c.env.DB.batch(statements);
     } catch (dbError: any) {
       if (photoKey) await c.env.R2_BUCKET.delete(photoKey).catch(() => undefined);
       throw dbError;
     }
-
-    return c.json({
-      success: true,
-      data: {
-        id: groupId,
-        group_name: groupName,
-        group_type: groupType,
-        created_by: actor.id,
-        cluster_code: effectiveClusterCode,
-        school_code: effectiveSchoolCode,
-        scope_type: effectiveScope,
-        description: description || null,
-        photo_key: photoKey,
-        member_count: allMemberIds.length,
-        is_active: 1,
-        created_at: new Date().toISOString()
-      }
-    }, 201);
+    return c.json({ success: true, data: { id: groupId, group_name: groupName, group_type: groupType, created_by: actor.id, cluster_code: effectiveClusterCode, school_code: effectiveSchoolCode, scope_type: effectiveScope, description: description || null, photo_key: photoKey, member_count: allMemberIds.length, is_active: 1, created_at: new Date().toISOString() } }, 201);
   } catch (e: any) {
     console.error('Group creation failed:', e);
     return error(c, `Database error while creating group: ${e?.message || 'unknown database error'}`, 500);
   }
 });
 
-// Authenticated photo streaming endpoint. The app can later use this URL with its Bearer token.
+// Full group information is visible to every user who can access the group.
+groupRouter.get('/:id', authMiddleware(), async (c) => {
+  const actor = c.get('user');
+  const id = c.req.param('id');
+  const access = await canAccessGroup(c.env.DB, actor, id);
+  if (!access.group) return error(c, 'Group not found', 404);
+  if (!access.allowed) return error(c, 'You do not have access to this group', 403);
+  try {
+    const members = await c.env.DB.prepare(`SELECT u.id, u.name, u.email, u.role, gm.role_in_group FROM group_members gm INNER JOIN users u ON u.id = gm.user_id WHERE gm.group_id = ? AND gm.is_active = 1 ORDER BY CASE WHEN gm.role_in_group = 'owner' THEN 0 ELSE 1 END, u.name COLLATE NOCASE ASC`).bind(id).all();
+    return c.json({ success: true, data: { ...access.group, member_count: (members.results || []).length, members: members.results || [] } });
+  } catch (e: any) {
+    console.error('Group info failed:', e);
+    return error(c, 'Unable to load group information', 500);
+  }
+});
+
+// Only the group's creator/owner can manage group settings and membership.
+groupRouter.patch('/:id', authMiddleware(), async (c) => {
+  const actor = c.get('user');
+  const id = c.req.param('id');
+  if (!(await isOwner(c.env.DB, actor, id))) return error(c, 'Only the group owner can manage this group', 403);
+  const body = await c.req.json<any>().catch(() => ({}));
+  const name = typeof body.group_name === 'string' ? body.group_name.trim() : '';
+  const description = typeof body.description === 'string' ? body.description.trim() : '';
+  if (name.length < 2 || name.length > 80) return error(c, 'Group name must contain 2 to 80 characters');
+  if (description.length > 500) return error(c, 'Group description cannot exceed 500 characters');
+  try {
+    await c.env.DB.prepare('UPDATE groups SET group_name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND is_active = 1').bind(name, description || null, id).run();
+    await c.env.DB.prepare('UPDATE group_members SET group_name = ? WHERE group_id = ? AND is_active = 1').bind(name, id).run();
+    return c.json({ success: true });
+  } catch (e: any) { console.error('Group update failed:', e); return error(c, 'Unable to update group', 500); }
+});
+
+groupRouter.post('/:id/members', authMiddleware(), async (c) => {
+  const actor = c.get('user');
+  const groupId = c.req.param('id');
+  if (!(await isOwner(c.env.DB, actor, groupId))) return error(c, 'Only the group owner can manage members', 403);
+  const body = await c.req.json<any>().catch(() => ({}));
+  const userId = typeof body.user_id === 'string' ? body.user_id.trim() : '';
+  if (!userId) return error(c, 'User selection is required');
+  try {
+    const group = await c.env.DB.prepare('SELECT id, group_name, scope_type, cluster_code, school_code FROM groups WHERE id = ? AND is_active = 1 LIMIT 1').bind(groupId).first<any>();
+    if (!group) return error(c, 'Group not found', 404);
+    const count = await c.env.DB.prepare('SELECT COUNT(*) AS count FROM group_members WHERE group_id = ? AND is_active = 1').bind(groupId).first<any>();
+    if (Number(count?.count || 0) >= MAX_MEMBERS) return error(c, `A group can contain at most ${MAX_MEMBERS} members`);
+    const user = await c.env.DB.prepare('SELECT id, name, cluster_code, school_code, status FROM users WHERE id = ? LIMIT 1').bind(userId).first<any>();
+    if (!user || user.status !== 'Active') return error(c, 'Selected user is not an active user');
+    if (group.scope_type === 'cluster' && user.cluster_code !== group.cluster_code) return error(c, 'Selected user is outside this group cluster', 403);
+    if (group.scope_type === 'school' && user.school_code !== group.school_code) return error(c, 'Selected user is outside this group school', 403);
+    const existing = await c.env.DB.prepare('SELECT id, is_active FROM group_members WHERE group_id = ? AND user_id = ? LIMIT 1').bind(groupId, userId).first<any>();
+    if (existing?.is_active === 1) return error(c, 'User is already a group member');
+    if (existing) await c.env.DB.prepare('UPDATE group_members SET is_active = 1, user_name = ?, group_name = ?, role_in_group = ? WHERE id = ?').bind(user.name, group.group_name, 'member', existing.id).run();
+    else await c.env.DB.prepare('INSERT INTO group_members (id, group_id, group_name, user_id, user_name, role_in_group, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)').bind(`gm-${crypto.randomUUID()}`, groupId, group.group_name, user.id, user.name, 'member').run();
+    return c.json({ success: true });
+  } catch (e: any) { console.error('Group member add failed:', e); return error(c, 'Unable to add group member', 500); }
+});
+
+groupRouter.delete('/:id/members/:userId', authMiddleware(), async (c) => {
+  const actor = c.get('user');
+  const groupId = c.req.param('id');
+  const userId = c.req.param('userId');
+  if (!(await isOwner(c.env.DB, actor, groupId))) return error(c, 'Only the group owner can manage members', 403);
+  if (userId === actor.id) return error(c, 'The group owner cannot be removed from the group');
+  try {
+    const result = await c.env.DB.prepare('UPDATE group_members SET is_active = 0 WHERE group_id = ? AND user_id = ? AND is_active = 1').bind(groupId, userId).run();
+    if (!result.meta.changes) return error(c, 'Group member not found', 404);
+    return c.json({ success: true });
+  } catch (e: any) { console.error('Group member removal failed:', e); return error(c, 'Unable to remove group member', 500); }
+});
+
+groupRouter.delete('/:id', authMiddleware(), async (c) => {
+  const actor = c.get('user');
+  const id = c.req.param('id');
+  if (!(await isOwner(c.env.DB, actor, id))) return error(c, 'Only the group owner can close this group', 403);
+  try {
+    await c.env.DB.prepare('UPDATE groups SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run();
+    await c.env.DB.prepare('UPDATE group_members SET is_active = 0 WHERE group_id = ?').bind(id).run();
+    return c.json({ success: true });
+  } catch (e: any) { console.error('Group close failed:', e); return error(c, 'Unable to close group', 500); }
+});
+
+// Authenticated photo streaming endpoint.
 groupRouter.get('/:id/photo', authMiddleware(), async (c) => {
   const actor = c.get('user');
   const id = c.req.param('id');
@@ -249,8 +277,5 @@ groupRouter.get('/:id/photo', authMiddleware(), async (c) => {
     object.writeHttpMetadata(headers);
     headers.set('Cache-Control', 'private, max-age=3600');
     return new Response(object.body, { status: 200, headers });
-  } catch (e: any) {
-    console.error('Group photo read failed:', e);
-    return error(c, 'Unable to load group photo', 500);
-  }
+  } catch (e: any) { console.error('Group photo read failed:', e); return error(c, 'Unable to load group photo', 500); }
 });
