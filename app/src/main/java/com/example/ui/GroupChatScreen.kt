@@ -65,6 +65,7 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
 
   DisposableEffect(group.id, session.token) {
     connectionManager.onMessage = { message -> scope.launch { addServerMessage(message) } }
+    connectionManager.onDeleted = { messageId -> scope.launch { messages = messages.map { if (it.id == messageId) it.copy(isDeleted = true, text = null, attachmentKey = null, attachmentName = null, mediaUrl = null) else it }; selectedIds = selectedIds - messageId } }
     connectionManager.onError = { message -> scope.launch { uploadError = message } }
     RealtimeMessageApi.getMessageHistory(group.id, session.token, onSuccess = { result ->
       scope.launch {
@@ -146,7 +147,8 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
           Text("${selectedIds.size} निवडले", Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = HighDensityOnBackground)
           IconButton(onClick = {
             val ids = selectedIds.toList()
-            ids.forEach { id -> RealtimeMessageApi.deleteMessage(session.token, group.id, id, onSuccess = { scope.launch { messages = messages.filterNot { it.id == id }; selectedIds = emptySet() } }, onError = { scope.launch { uploadError = it } }) }
+            if (ids.any { !connectionManager.deleteMessage(it) }) uploadError = "Realtime connection उपलब्ध नाही."
+            else selectedIds = emptySet()
           }) { Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFB91C1C)) }
         } else {
           Column(Modifier.weight(1f).clickable { showGroupInfo = true }) {
