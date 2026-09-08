@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,7 @@ import com.example.ui.theme.HighDensityPrimary
 
 @Composable
 fun ReportsScreen(session: UserSession) {
+  val context = LocalContext.current
   var reports by remember { mutableStateOf<List<ExcelReport>>(emptyList()) }
   var loading by remember { mutableStateOf(true) }
   var error by remember { mutableStateOf<String?>(null) }
@@ -88,7 +90,7 @@ fun ReportsScreen(session: UserSession) {
             onOpen = {
               openingId = report.id
               ReportsApi.downloadAndOpen(
-                context = session.contextOrNull(),
+                context = context,
                 token = session.token,
                 report = report,
                 onError = { openingId = null }
@@ -118,10 +120,4 @@ private fun ReportCard(report: ExcelReport, opening: Boolean, onOpen: () -> Unit
       else IconButton(onClick = onOpen) { Icon(Icons.Default.Download, "Open report", tint = HighDensityPrimary) }
     }
   }
-}
-
-@Composable
-private fun UserSession.contextOrNull(): Context {
-  // Replaced at call site by LocalContext below; kept out of the session model.
-  return androidx.compose.ui.platform.LocalContext.current
 }
