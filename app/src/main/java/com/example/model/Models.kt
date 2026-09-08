@@ -74,7 +74,8 @@ data class ChatGroup(
   val scope: String,
   val groupType: String = "general",
   val memberCount: Int = 0,
-  val photoKey: String? = null
+  val photoKey: String? = null,
+  val isActive: Boolean = true
 )
 
 data class GroupMemberCandidate(
@@ -108,7 +109,8 @@ data class GroupInfo(
   val createdBy: String,
   val createdAt: String,
   val memberCount: Int,
-  val members: List<GroupMember>
+  val members: List<GroupMember>,
+  val isActive: Boolean = true
 )
 
 data class GroupCreateResult(
