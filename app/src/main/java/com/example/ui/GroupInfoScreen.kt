@@ -34,6 +34,7 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
   var managedMembers by remember(group.id) { mutableStateOf<List<ManagedGroupMember>>(emptyList()) }
   var error by remember(group.id) { mutableStateOf<String?>(null) }
   var loading by remember(group.id) { mutableStateOf(true) }
+  var groupIsActive by remember(group.id) { mutableStateOf(group.isActive) }
   var manage by remember { mutableStateOf(false) }
   var manageLoading by remember { mutableStateOf(false) }
   var lifecycleLoading by remember { mutableStateOf(false) }
@@ -47,7 +48,7 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
   fun reload() {
     loading = true
     BackendApi.getGroupInfo(session.token, group.id,
-      onSuccess = { info -> detail = info.copy(isActive = group.isActive); editName = info.name; editDescription = info.description.orEmpty(); loading = false; error = null },
+      onSuccess = { info -> detail = info.copy(isActive = groupIsActive); editName = info.name; editDescription = info.description.orEmpty(); loading = false; error = null },
       onError = { error = it; loading = false }
     )
   }
@@ -66,12 +67,12 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     actionError = null
     if (active) {
       GroupMemberManagementApi.reactivateGroup(session.token, group.id,
-        onSuccess = { lifecycleLoading = false; reload(); reloadManagedMembers() },
+        onSuccess = { groupIsActive = true; lifecycleLoading = false; reload(); reloadManagedMembers() },
         onError = { lifecycleLoading = false; actionError = it }
       )
     } else {
       BackendApi.deactivateGroup(session.token, group.id,
-        onSuccess = { lifecycleLoading = false; reload() },
+        onSuccess = { groupIsActive = false; lifecycleLoading = false; reload() },
         onError = { lifecycleLoading = false; actionError = it }
       )
     }
