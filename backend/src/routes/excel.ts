@@ -28,8 +28,6 @@ async function groupAccess(db: D1Database, actor: any, groupId: string) {
 
 excelRouter.use('*', authMiddleware());
 
-// Upload a report directly from the Reports tab. The report is published immediately.
-// The selected group supplies the existing messages.group_id relationship and scope context.
 excelRouter.post('/reports/upload', async (c) => {
   const actor = c.get('user');
   if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can upload Reports', 403);
@@ -59,11 +57,26 @@ excelRouter.post('/reports/upload', async (c) => {
 
     await c.env.DB.prepare(`INSERT INTO messages (id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, is_deleted, is_read, excel_status, excel_version, excel_published_at, excel_published_by) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 0, 0, 'published', 1, CURRENT_TIMESTAMP, ?)`).bind(messageId, groupId, access.group.group_name || '', actor.id, actor.name || '', safeName, messageType, key, safeName, mimeType, uploaded.size, actor.id).run();
 
-    return c.json({ success: true, data: { id: messageId, group_id: groupId, group_name: access.group.group_name || '', sender_name: actor.name || '', file_name: safeName, mime_type: mimeType, file_size: uploaded.size, excel_version: 1, excel_status: 'published', excel_published_by: actor.id } }, 201);
+    return c.json({ success: true, data: { id: messageId, group_id: groupId, group_name: access.group.group_name || '', sender_name: actor.name || '', file_name: safeName, mime_type: mimeType, file_size: uploaded.size, excel_version: 1, excel_status: 'published', excel_published_at: new Date().toISOString(), excel_published_by: actor.id } }, 201);
   } catch (e: any) {
     console.error('Report upload failed:', e);
     return error(c, 'Unable to upload Report', 500);
   }
+});
+
+// Published Reports are globally readable to authenticated users, independent of group membership.
+excelRouter.get('/reports/:messageId/download', async (c) => {
+  const messageId = c.req.param('messageId');
+  const file = await c.env.DB.prepare(`SELECT attachment_key, file_name, mime_type FROM messages WHERE id = ? AND message_type IN ('excel', 'pdf') AND excel_status = 'published' AND is_deleted = 0 LIMIT 1`).bind(messageId).first<any>();
+  if (!file?.attachment_key) return error(c, 'Published Report not found', 404);
+  const object = await c.env.R2_BUCKET.get(file.attachment_key);
+  if (!object) return error(c, 'Report file not found', 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('Cache-Control', 'private, max-age=3600');
+  if (file.file_name) headers.set('Content-Disposition', `attachment; filename="${String(file.file_name).replace(/[^a-zA-Z0-9._-]/g, '_')}"`);
+  if (file.mime_type) headers.set('Content-Type', file.mime_type);
+  return new Response(object.body, { status: 200, headers });
 });
 
 excelRouter.put('/:groupId/:messageId', async (c) => {
