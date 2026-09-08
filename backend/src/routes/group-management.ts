@@ -17,25 +17,39 @@ async function canManageGroup(db: D1Database, actor: any, groupId: string) {
   return { group, allowed: actor.role === 'Admin' || group.created_by === actor.id };
 }
 
-// Closed groups are visible only to App Admin / Cluster Head so they can be restored.
-groupManagementRouter.get('/inactive', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
+// Closed groups are visible to App Admin, assigned Cluster Head, or the group owner.
+groupManagementRouter.get('/inactive', authMiddleware(), async (c) => {
   const actor = c.get('user');
   try {
-    const result = actor.role === 'Admin'
-      ? await c.env.DB.prepare(`
-          SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
-                 g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
-                 COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
-          FROM groups g WHERE g.is_active = 0
-          ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
-        `).all()
-      : await c.env.DB.prepare(`
-          SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
-                 g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
-                 COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
-          FROM groups g WHERE g.is_active = 0 AND g.scope_type = 'cluster' AND g.cluster_code = ?
-          ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
-        `).bind(actor.cluster_code).all();
+    let result;
+    if (actor.role === 'Admin') {
+      result = await c.env.DB.prepare(`
+        SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
+               g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
+               COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
+        FROM groups g WHERE g.is_active = 0
+        ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
+      `).all();
+    } else if (actor.role === 'Cluster_Head') {
+      result = await c.env.DB.prepare(`
+        SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
+               g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
+               COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
+        FROM groups g
+        WHERE g.is_active = 0
+          AND (g.created_by = ? OR (g.scope_type = 'cluster' AND g.cluster_code = ?))
+        ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
+      `).bind(actor.id, actor.cluster_code).all();
+    } else {
+      result = await c.env.DB.prepare(`
+        SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
+               g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
+               COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
+        FROM groups g
+        WHERE g.is_active = 0 AND g.created_by = ?
+        ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
+      `).bind(actor.id).all();
+    }
     return c.json({ success: true, data: result.results || [] });
   } catch (e: any) {
     console.error('Inactive group directory failed:', e);
