@@ -24,8 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ExcelReport
 import com.example.data.ReportsApi
+import com.example.model.ChatGroup
 import com.example.model.UserRole
 import com.example.model.UserSession
+import com.example.data.BackendApi
 import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.HighDensityOnBackground
 import com.example.ui.theme.HighDensityPrimary
@@ -45,15 +47,22 @@ fun ReportsScreen(session: UserSession) {
   var showUpload by remember { mutableStateOf(false) }
   var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
   var selectedFileName by remember { mutableStateOf("") }
+  var groups by remember { mutableStateOf<List<ChatGroup>>(emptyList()) }
+  var selectedGroupId by remember { mutableStateOf("") }
+  var groupsLoading by remember { mutableStateOf(false) }
+  var uploading by remember { mutableStateOf(false) }
+  var uploadError by remember { mutableStateOf<String?>(null) }
 
   val canUpload = session.role == UserRole.Admin || session.role == UserRole.Cluster_Head
 
   val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
     if (uri != null) {
       selectedFileUri = uri
-      selectedFileName = context.contentResolver.getType(uri)?.let { mime ->
-        uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { mime.substringAfterLast('/').uppercase() }
-      } ?: uri.lastPathSegment.orEmpty()
+      selectedFileName = runCatching {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+          if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else ""
+        }.orEmpty()
+      }.getOrDefault("").ifBlank { uri.lastPathSegment.orEmpty() }
     }
   }
 
@@ -65,6 +74,28 @@ fun ReportsScreen(session: UserSession) {
       onSuccess = { reports = it; loading = false },
       onError = { error = it; loading = false }
     )
+  }
+
+  fun openUpload() {
+    showUpload = true
+    uploadError = null
+    if (groups.isEmpty()) {
+      groupsLoading = true
+      BackendApi.getGroups(
+        token = session.token,
+        onSuccess = { list ->
+          groups = list
+          groupsLoading = false
+          if (selectedGroupId.isBlank()) selectedGroupId = list.firstOrNull()?.id.orEmpty()
+        },
+        onError = { message ->
+          groupsLoading = false
+          uploadError = message
+        }
+      )
+    } else if (selectedGroupId.isBlank()) {
+      selectedGroupId = groups.firstOrNull()?.id.orEmpty()
+    }
   }
 
   LaunchedEffect(session.token) { loadReports() }
@@ -107,7 +138,7 @@ fun ReportsScreen(session: UserSession) {
           state = rememberTooltipState()
         ) {
           Button(
-            onClick = { showUpload = true },
+            onClick = { openUpload() },
             shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 13.dp, vertical = 9.dp),
             colors = ButtonDefaults.buttonColors(containerColor = HighDensityPrimary)
@@ -210,13 +241,47 @@ fun ReportsScreen(session: UserSession) {
   }
 
   if (showUpload) {
+    var groupMenuExpanded by remember { mutableStateOf(false) }
     AlertDialog(
-      onDismissRequest = { showUpload = false; selectedFileUri = null; selectedFileName = "" },
+      onDismissRequest = {
+        if (!uploading) {
+          showUpload = false
+          selectedFileUri = null
+          selectedFileName = ""
+          uploadError = null
+        }
+      },
       title = { Text("Report Upload करा", fontWeight = FontWeight.Bold) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
           Text("Excel किंवा PDF Report निवडा.", color = Color(0xFF64748B), fontSize = 13.sp)
-          Surface(Modifier.fillMaxWidth().clickable { picker.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv", "application/pdf")) }, RoundedCornerShape(14.dp), color = Color(0xFFF5F7FB)) {
+          Box {
+            OutlinedButton(
+              onClick = { groupMenuExpanded = true },
+              enabled = !groupsLoading && !uploading && groups.isNotEmpty(),
+              modifier = Modifier.fillMaxWidth(),
+              shape = RoundedCornerShape(14.dp),
+              contentPadding = PaddingValues(horizontal = 14.dp, vertical = 11.dp)
+            ) {
+              Icon(Icons.Default.Groups, null, tint = HighDensityPrimary)
+              Spacer(Modifier.width(8.dp))
+              Text(groups.firstOrNull { it.id == selectedGroupId }?.name ?: if (groupsLoading) "Group माहिती घेत आहे..." else "Report साठी Group निवडा", modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Icon(Icons.Default.KeyboardArrowDown, null)
+            }
+            DropdownMenu(expanded = groupMenuExpanded, onDismissRequest = { groupMenuExpanded = false }) {
+              groups.forEach { group ->
+                DropdownMenuItem(
+                  text = { Text(group.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                  onClick = { selectedGroupId = group.id; groupMenuExpanded = false }
+                )
+              }
+            }
+          }
+          Surface(
+            Modifier.fillMaxWidth().clickable(enabled = !uploading) { picker.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv", "application/pdf")) },
+            RoundedCornerShape(14.dp),
+            color = Color(0xFFF5F7FB)
+          ) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
               Icon(if (selectedFileUri == null) Icons.Default.AttachFile else Icons.Default.Description, null, tint = HighDensityPrimary)
               Spacer(Modifier.width(10.dp))
@@ -224,12 +289,43 @@ fun ReportsScreen(session: UserSession) {
             }
           }
           Text("फक्त App Admin आणि Cluster Head करिता.", fontSize = 11.sp, color = HighDensityPrimary, fontWeight = FontWeight.SemiBold)
+          uploadError?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9A3412)) }
+          if (uploading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = HighDensityPrimary)
+            Text("Report upload होत आहे...", fontSize = 11.sp, color = Color(0xFF64748B))
+          }
         }
       },
       confirmButton = {
-        Button(onClick = { showUpload = false }, enabled = selectedFileUri != null) { Text("Upload") }
+        Button(
+          onClick = {
+            val uri = selectedFileUri ?: return@Button
+            if (selectedGroupId.isBlank()) { uploadError = "Report साठी Group निवडा."; return@Button }
+            uploading = true
+            uploadError = null
+            ReportsApi.uploadReport(
+              context = context,
+              token = session.token,
+              groupId = selectedGroupId,
+              uri = uri,
+              onSuccess = {
+                uploading = false
+                showUpload = false
+                selectedFileUri = null
+                selectedFileName = ""
+                uploadError = null
+                loadReports()
+              },
+              onError = {
+                uploading = false
+                uploadError = it
+              }
+            )
+          },
+          enabled = selectedFileUri != null && selectedGroupId.isNotBlank() && !uploading && !groupsLoading
+        ) { Text(if (uploading) "Uploading..." else "Upload") }
       },
-      dismissButton = { TextButton(onClick = { showUpload = false; selectedFileUri = null; selectedFileName = "" }) { Text("रद्द करा") } }
+      dismissButton = { TextButton(onClick = { if (!uploading) { showUpload = false; selectedFileUri = null; selectedFileName = ""; uploadError = null } }) { Text("रद्द करा") } }
     )
   }
 }
