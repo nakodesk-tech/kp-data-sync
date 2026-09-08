@@ -119,24 +119,24 @@ object ReportsApi {
     resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else "" }.orEmpty()
   }.getOrDefault("")
 
-  fun downloadAndOpen(context: Context, token: String, report: ExcelReport, onError: (String) -> Unit) {
+  fun downloadAndOpen(context: Context, token: String, report: ExcelReport, onComplete: (String?) -> Unit) {
     Thread {
       try {
         val request = Request.Builder().url("$BASE_URL/api/excel/reports/${report.id}/download").header("Authorization", "Bearer $token").get().build()
         client.newCall(request).execute().use { response ->
           if (!response.isSuccessful) {
             val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
-            onError(json.optString("error").ifBlank { "Report उघडता आली नाही (HTTP ${response.code})" }); return@use
+            onComplete(json.optString("error").ifBlank { "Report उघडता आली नाही (HTTP ${response.code})" }); return@use
           }
           val safeName = report.fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "report.xlsx" }
           val target = File(context.cacheDir, "report_${report.id}_$safeName")
           response.body?.byteStream()?.use { input -> target.outputStream().use { output -> input.copyTo(output) } }
           val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", target)
           val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, report.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK) }
-          try { context.startActivity(intent) } catch (_: Exception) { onError("ही Report उघडण्यासाठी योग्य app उपलब्ध नाही.") }
+          try { context.startActivity(intent); onComplete(null) } catch (_: Exception) { onComplete("ही Report उघडण्यासाठी योग्य app उपलब्ध नाही.") }
         }
       } catch (e: Exception) {
-        onError(e.message?.trim().takeUnless { it.isNullOrBlank() }?.let { "Network error: $it" } ?: "Report download failed.")
+        onComplete(e.message?.trim().takeUnless { it.isNullOrBlank() }?.let { "Network error: $it" } ?: "Report download failed.")
       }
     }.start()
   }
