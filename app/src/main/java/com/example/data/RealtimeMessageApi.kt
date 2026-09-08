@@ -8,6 +8,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSink
 import okio.source
 import org.json.JSONObject
@@ -16,7 +17,6 @@ import java.util.concurrent.TimeUnit
 object RealtimeMessageApi {
   const val BASE_URL = "https://kp-data-sync-api.nakodesk.workers.dev"
   const val MAX_ATTACHMENT_BYTES = 50L * 1024L * 1024L
-
   private val client = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).writeTimeout(60, TimeUnit.SECONDS).build()
 
   fun getMessageHistory(groupId: String, token: String, limit: Int = 50, before: String? = null, onSuccess: (List<GroupMessage>) -> Unit, onError: (String) -> Unit) {
@@ -38,8 +38,7 @@ object RealtimeMessageApi {
   fun deleteMessage(token: String, groupId: String, messageId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
     Thread {
       try {
-        val response = client.newCall(Request.Builder().url("$BASE_URL/api/messages/$groupId/$messageId").header("Authorization", "Bearer $token").delete().build()).execute()
-        response.use {
+        client.newCall(Request.Builder().url("$BASE_URL/api/messages/$groupId/$messageId").header("Authorization", "Bearer $token").delete().build()).execute().use { response ->
           val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
           if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "संदेश हटवता आला नाही (HTTP ${response.code})" }); return@use }
           onSuccess()
@@ -81,8 +80,7 @@ object RealtimeMessageApi {
           override fun contentLength() = size
           override fun writeTo(sink: BufferedSink) { context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) } ?: throw IllegalStateException("Excel file वाचता आली नाही.") }
         }
-        val request = Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId").header("Authorization", "Bearer $token").put(body).build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId").header("Authorization", "Bearer $token").put(body).build()).execute().use { response ->
           val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
           if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "Excel save failed (HTTP ${response.code})" }); return@use }
           val data = json.optJSONObject("data") ?: JSONObject(); onSuccess(data.optInt("version", 1), data.optString("status", "editable"))
@@ -94,8 +92,8 @@ object RealtimeMessageApi {
   fun publishExcel(token: String, groupId: String, messageId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
     Thread {
       try {
-        val request = Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId/publish").header("Authorization", "Bearer $token").post(okhttp3.internal.Util.EMPTY_BYTE_ARRAY.toRequestBody(null)).build()
-        client.newCall(request).execute().use { response ->
+        val body = "".toRequestBody("application/octet-stream".toMediaType())
+        client.newCall(Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId/publish").header("Authorization", "Bearer $token").post(body).build()).execute().use { response ->
           val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
           if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "Excel Reports मध्ये पाठवता आली नाही (HTTP ${response.code})" }); return@use }
           onSuccess()
