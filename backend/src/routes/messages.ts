@@ -38,7 +38,9 @@ messageRouter.get('/:id', async (c) => {
   const requestedLimit = Number(url.searchParams.get('limit') || 50);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? Math.floor(requestedLimit) : 50, 1), MAX_HISTORY);
   const before = url.searchParams.get('before');
-  const columns = 'id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, is_deleted, is_read, created_at, updated_at, excel_status, excel_version, excel_published_at, excel_published_by';
+  // Keep the existing chat history query compatible until the Excel lifecycle migration is applied.
+  // Excel clients use default lifecycle values when these optional columns are absent.
+  const columns = 'id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, is_deleted, is_read, created_at, updated_at';
   const result = before
     ? await c.env.DB.prepare(`SELECT ${columns} FROM messages WHERE group_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?`).bind(groupId, before, limit).all()
     : await c.env.DB.prepare(`SELECT ${columns} FROM messages WHERE group_id = ? ORDER BY created_at DESC LIMIT ?`).bind(groupId, limit).all();
@@ -83,7 +85,7 @@ messageRouter.post('/:id/attachment', async (c) => {
   const attachmentId = crypto.randomUUID();
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'attachment';
   const key = `groups/${groupId}/attachments/${attachmentId}-${safeName}`;
-  await c.env.R2_BUCKET.put(key, c.req.raw.body, { httpMetadata: { contentType: mimeType, contentDisposition: `attachment; filename="${safeName}"` }, customMetadata: { groupId, uploadedBy: actor.id, messageType } });
+  await c.env.R2_BUCKET.put(key, c.req.raw.body, { httpMetadata: { contentType: mimeType, contentDisposition: `attachment; filename=\"${safeName}\"` }, customMetadata: { groupId, uploadedBy: actor.id, messageType } });
   const object = await c.env.R2_BUCKET.head(key);
   return c.json({ success: true, data: { attachment_key: key, file_name: safeName, mime_type: mimeType, file_size: object?.size || (declaredSize || null), message_type: messageType } }, 201);
 });
