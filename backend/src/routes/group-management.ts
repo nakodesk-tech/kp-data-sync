@@ -17,6 +17,57 @@ async function canManageGroup(db: D1Database, actor: any, groupId: string) {
   return { group, allowed: actor.role === 'Admin' || group.created_by === actor.id };
 }
 
+// Closed groups are visible only to App Admin / Cluster Head so they can be restored.
+groupManagementRouter.get('/inactive', authMiddleware(['Admin', 'Cluster_Head']), async (c) => {
+  const actor = c.get('user');
+  try {
+    const result = actor.role === 'Admin'
+      ? await c.env.DB.prepare(`
+          SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
+                 g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
+                 COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
+          FROM groups g WHERE g.is_active = 0
+          ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
+        `).all()
+      : await c.env.DB.prepare(`
+          SELECT g.id, g.group_name, g.group_type, g.created_by, g.cluster_code, g.school_code,
+                 g.scope_type, g.description, g.photo_key, g.is_active, g.created_at,
+                 COALESCE((SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id AND gm.is_active = 0), 0) AS member_count
+          FROM groups g WHERE g.is_active = 0 AND g.scope_type = 'cluster' AND g.cluster_code = ?
+          ORDER BY g.updated_at DESC, g.group_name COLLATE NOCASE ASC
+        `).bind(actor.cluster_code).all();
+    return c.json({ success: true, data: result.results || [] });
+  } catch (e: any) {
+    console.error('Inactive group directory failed:', e);
+    return error(c, 'Unable to load inactive groups', 500);
+  }
+});
+
+// Reactivation uses the same authority boundary as closing: App Admin or group owner.
+groupManagementRouter.post('/:id/reactivate', authMiddleware(), async (c) => {
+  const actor = c.get('user');
+  const groupId = c.req.param('id');
+  try {
+    const group = await c.env.DB.prepare(`
+      SELECT id, created_by, scope_type, cluster_code, is_active
+      FROM groups WHERE id = ? LIMIT 1
+    `).bind(groupId).first<any>();
+    if (!group) return error(c, 'Group not found', 404);
+    if (group.is_active === 1) return c.json({ success: true, is_active: true });
+    if (actor.role !== 'Admin' && actor.id !== group.created_by) return error(c, 'Only the group owner or App Admin can reactivate this group', 403);
+    if (actor.role === 'Cluster_Head' && (group.scope_type !== 'cluster' || group.cluster_code !== actor.cluster_code)) return error(c, 'This group is outside your assigned cluster', 403);
+
+    await c.env.DB.batch([
+      c.env.DB.prepare('UPDATE groups SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(groupId),
+      c.env.DB.prepare('UPDATE group_members SET is_active = 1 WHERE group_id = ?').bind(groupId)
+    ]);
+    return c.json({ success: true, is_active: true });
+  } catch (e: any) {
+    console.error('Group reactivation failed:', e);
+    return error(c, 'Unable to reactivate group', 500);
+  }
+});
+
 groupManagementRouter.get('/:id/management/members', authMiddleware(), async (c) => {
   const actor = c.get('user');
   const groupId = c.req.param('id');
