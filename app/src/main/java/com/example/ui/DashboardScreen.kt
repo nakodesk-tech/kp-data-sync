@@ -30,7 +30,7 @@ import com.example.ui.theme.HighDensityOnPrimaryContainer
 import com.example.ui.theme.HighDensityPrimary
 import com.example.ui.theme.HighDensityPrimaryContainer
 
-private enum class DashboardTab { Chats, Schools, Users, Profile }
+private enum class DashboardTab { Chats, Schools, Users, Reports, Profile }
 
 @Composable
 fun DashboardScreen(
@@ -90,10 +90,11 @@ fun DashboardScreen(
     },
     bottomBar = {
       Surface(color = Color.White, border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCAC4D0)), modifier = Modifier.navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 2.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {
           NavItem("Chats", Icons.Default.ChatBubble, currentTab == DashboardTab.Chats) { currentTab = DashboardTab.Chats }
           NavItem("Schools", Icons.Default.AccountBalance, currentTab == DashboardTab.Schools) { currentTab = DashboardTab.Schools }
           NavItem("Users", Icons.Default.Groups, currentTab == DashboardTab.Users) { currentTab = DashboardTab.Users }
+          NavItem("Reports", Icons.Default.Description, currentTab == DashboardTab.Reports) { currentTab = DashboardTab.Reports }
           NavItem("Profile", Icons.Default.Person, currentTab == DashboardTab.Profile) { currentTab = DashboardTab.Profile }
         }
       }
@@ -104,6 +105,7 @@ fun DashboardScreen(
         DashboardTab.Chats -> ChatsContent(session = session, onOpenSchools = { currentTab = DashboardTab.Schools }, onOpenChat = { activeChatGroup = it })
         DashboardTab.Schools -> SchoolsTabContent(SchoolDirectorySeed(), session.role) { }
         DashboardTab.Users -> UsersTabContent(session = session, onRegisterUser = onRegisterUser)
+        DashboardTab.Reports -> ReportsScreen(session = session)
         DashboardTab.Profile -> ProfileScreen(
           session = session,
           onLogout = onLogout,
@@ -133,11 +135,11 @@ fun DashboardScreen(
 
 @Composable
 private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector, selected: Boolean, onClick: () -> Unit) {
-  Column(Modifier.clickable(onClick = onClick).padding(vertical = 4.dp, horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-    Box(Modifier.clip(RoundedCornerShape(16.dp)).background(if (selected) HighDensityPrimaryContainer else Color.Transparent).padding(horizontal = 16.dp, vertical = 4.dp)) {
+  Column(Modifier.clickable(onClick = onClick).padding(vertical = 4.dp, horizontal = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(Modifier.clip(RoundedCornerShape(16.dp)).background(if (selected) HighDensityPrimaryContainer else Color.Transparent).padding(horizontal = 11.dp, vertical = 4.dp)) {
       Icon(icon, title, tint = if (selected) HighDensityPrimary else Color(0xFF49454F), modifier = Modifier.size(22.dp))
     }
-    Text(title, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, color = if (selected) HighDensityPrimary else Color(0xFF49454F))
+    Text(title, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, color = if (selected) HighDensityPrimary else Color(0xFF49454F))
   }
 }
 
