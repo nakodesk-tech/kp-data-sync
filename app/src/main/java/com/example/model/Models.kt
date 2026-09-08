@@ -62,7 +62,6 @@ data class SchoolRecord(
   val isActive: Boolean
 )
 
-/** Type marker used to select the live Schools management UI instead of the old demo-list overload. */
 class SchoolDirectorySeed(private val items: List<SchoolItem> = emptyList()) : List<SchoolItem> by items
 
 data class ChatGroup(
@@ -154,7 +153,11 @@ data class GroupMessage(
   val updatedAt: String? = null,
   val isMe: Boolean = false,
   val mediaUrl: String? = null,
-  val clientMessageId: String? = null
+  val clientMessageId: String? = null,
+  val excelStatus: String = "editable",
+  val excelVersion: Int = 1,
+  val excelPublishedAt: String? = null,
+  val excelPublishedBy: String? = null
 )
 
 data class SyncLog(
