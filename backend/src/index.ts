@@ -9,8 +9,7 @@ import { messageRouter } from './routes/messages';
 import { ChatRoom } from './chat-room';
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
-
-const BACKEND_BUILD = 'realtime-messaging-v1';
+const BACKEND_BUILD = 'group-management-chat-ux-v1';
 
 app.use('*', async (c, next) => {
   const allowedOrigin = c.env.CORS_ORIGIN || '*';
@@ -24,12 +23,10 @@ app.get('/', (c) => c.json({
   storage: { d1: 'Cloudflare D1 (SQLite)', r2: 'Cloudflare R2 Object Storage (R2_BUCKET)', realtime: 'Cloudflare Durable Objects + WebSocket Hibernation' },
   endpoints: {
     health: 'GET /', login: 'POST /api/auth/login', setupAdmin: 'POST /api/auth/setup-admin',
-    schools: 'GET /api/schools', registerSchool: 'POST /api/schools/register',
-    updateSchool: 'PATCH /api/schools/:id', deleteSchool: 'DELETE /api/schools/:id',
+    schools: 'GET /api/schools', registerSchool: 'POST /api/schools/register', updateSchool: 'PATCH /api/schools/:id', deleteSchool: 'DELETE /api/schools/:id',
     users: 'GET /api/user/directory', registerUser: 'POST /api/user/register', adminOverview: 'GET /api/user/admin/overview',
-    groups: 'GET /api/groups', createGroup: 'POST /api/groups', groupPhoto: 'GET /api/groups/:id/photo',
-    messages: 'GET /api/messages/:groupId', messageAttachment: 'POST /api/messages/:groupId/attachment',
-    messageAttachmentRead: 'GET /api/messages/:groupId/attachment/:messageId', realtime: 'GET /api/messages/:groupId/realtime'
+    groups: 'GET /api/groups', createGroup: 'POST /api/groups', groupInfo: 'GET /api/groups/:id', updateGroup: 'PATCH /api/groups/:id', closeGroup: 'DELETE /api/groups/:id', groupMembers: 'POST/DELETE /api/groups/:id/members', groupPhoto: 'GET /api/groups/:id/photo',
+    messages: 'GET /api/messages/:groupId', deleteMessage: 'DELETE /api/messages/:groupId/:messageId', messageAttachment: 'POST /api/messages/:groupId/attachment', messageAttachmentRead: 'GET /api/messages/:groupId/attachment/:messageId', realtime: 'GET /api/messages/:groupId/realtime'
   }
 }));
 
