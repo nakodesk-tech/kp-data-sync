@@ -38,6 +38,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) {
   var messages by remember(group.id) { mutableStateOf<List<GroupMessage>>(emptyList()) }
@@ -233,6 +234,7 @@ private fun UnreadDivider() {
   Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) { HorizontalDivider(Modifier.weight(1f), color = HighDensityPrimary); Text("  न वाचलेले संदेश  ", fontSize = 9.sp, color = HighDensityPrimary, fontWeight = FontWeight.Bold); HorizontalDivider(Modifier.weight(1f), color = HighDensityPrimary) }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(message: GroupMessage, context: Context, token: String, selected: Boolean, onLongPress: () -> Unit) {
   val mine = message.isMe

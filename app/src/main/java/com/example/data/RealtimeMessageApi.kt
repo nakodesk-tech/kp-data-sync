@@ -39,9 +39,14 @@ object RealtimeMessageApi {
     Thread {
       try {
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/messages/$groupId/$messageId").header("Authorization", "Bearer $token").delete().build()).execute()
-        val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
-        if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "संदेश हटवता आला नाही (HTTP ${response.code})" }); return@use }
-        onSuccess()
+        response.use {
+          val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
+          if (!response.isSuccessful || !json.optBoolean("success", false)) {
+            onError(json.optString("error").ifBlank { "संदेश हटवता आला नाही (HTTP ${response.code})" })
+            return@use
+          }
+          onSuccess()
+        }
       } catch (e: Exception) { onError(networkError(e)) }
     }.start()
   }
