@@ -2,13 +2,7 @@ package com.example.data
 
 import android.content.Context
 import android.net.Uri
-import com.example.model.ChatGroup
-import com.example.model.GroupCreateResult
-import com.example.model.GroupMemberCandidate
-import com.example.model.SchoolRecord
-import com.example.model.UserRecord
-import com.example.model.UserRole
-import com.example.model.UserSession
+import com.example.model.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,28 +114,76 @@ object BackendApi {
         if (photoUri != null) {
           val mime = context.contentResolver.getType(photoUri).orEmpty().lowercase()
           if (mime !in setOf("image/jpeg", "image/png", "image/webp")) { withContext(Dispatchers.Main) { onError("ग्रुप फोटो JPG, PNG किंवा WebP असावा.") }; return@launch }
-          val bytes = context.contentResolver.openInputStream(photoUri)?.use { it.readBytes() }
-            ?: run { withContext(Dispatchers.Main) { onError("ग्रुप फोटो वाचता आला नाही.") }; return@launch }
+          val bytes = context.contentResolver.openInputStream(photoUri)?.use { it.readBytes() } ?: run { withContext(Dispatchers.Main) { onError("ग्रुप फोटो वाचता आला नाही.") }; return@launch }
           if (bytes.size > MAX_GROUP_PHOTO_BYTES) { withContext(Dispatchers.Main) { onError("ग्रुप फोटो 5 MB पेक्षा कमी असावा.") }; return@launch }
           photoPart = MultipartBody.Part.createFormData("photo", "group-avatar", bytes.toRequestBody(mime.toMediaType()))
         }
-
-        val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
-          .addFormDataPart("group_name", groupName.trim())
-          .addFormDataPart("description", description.trim())
-          .addFormDataPart("group_type", groupType)
-          .addFormDataPart("scope_type", scopeType)
-          .addFormDataPart("member_ids", JSONArray(memberIds.distinct()).toString())
+        val builder = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("group_name", groupName.trim()).addFormDataPart("description", description.trim()).addFormDataPart("group_type", groupType).addFormDataPart("scope_type", scopeType).addFormDataPart("member_ids", JSONArray(memberIds.distinct()).toString())
         if (!clusterCode.isNullOrBlank()) builder.addFormDataPart("cluster_code", clusterCode)
         if (!schoolCode.isNullOrBlank()) builder.addFormDataPart("school_code", schoolCode)
         if (photoPart != null) builder.addPart(photoPart)
-
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/groups").addHeader("Authorization", "Bearer ${session.token}").post(builder.build()).build()).execute()
         val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
         if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "ग्रुप तयार करता आला नाही (HTTP ${response.code})" }) }; return@launch }
         val data = obj.optJSONObject("data") ?: JSONObject()
         val result = GroupCreateResult(data.optString("id"), data.optString("group_name"), data.optString("group_type"), data.optString("scope_type"), data.optString("cluster_code").ifBlank { null }, data.optString("school_code").ifBlank { null }, data.optString("description").ifBlank { null }, data.optInt("member_count", 0), data.optString("photo_key").ifBlank { null })
         withContext(Dispatchers.Main) { onSuccess(result) }
+      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
+    }
+  }
+
+  fun getGroupInfo(token: String, groupId: String, onSuccess: (GroupInfo) -> Unit, onError: (String) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val response = client.newCall(Request.Builder().url("$BASE_URL/api/groups/$groupId").addHeader("Authorization", "Bearer $token").get().build()).execute()
+        val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
+        if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "ग्रुप माहिती मिळवता आली नाही (HTTP ${response.code})" }) }; return@launch }
+        val data = obj.optJSONObject("data") ?: JSONObject()
+        val membersArray = data.optJSONArray("members") ?: JSONArray()
+        val members = buildList {
+          for (i in 0 until membersArray.length()) {
+            val m = membersArray.optJSONObject(i) ?: continue
+            val role = UserRole.values().firstOrNull { it.roleName == m.optString("role") } ?: UserRole.Teacher
+            add(GroupMember(m.optString("id"), m.optString("name"), m.optString("email"), role, m.optString("role_in_group", "member")))
+          }
+        }
+        val info = GroupInfo(data.optString("id"), data.optString("group_name"), data.optString("description").ifBlank { null }, data.optString("group_type", "general"), data.optString("scope_type", "cluster"), data.optString("cluster_code").ifBlank { null }, data.optString("school_code").ifBlank { null }, data.optString("created_by"), data.optString("created_at"), data.optInt("member_count", members.size), members)
+        withContext(Dispatchers.Main) { onSuccess(info) }
+      } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
+    }
+  }
+
+  fun updateGroup(token: String, groupId: String, name: String, description: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    groupJsonRequest(token, "PATCH", "/api/groups/$groupId", JSONObject().apply { put("group_name", name.trim()); put("description", description.trim()) }, onSuccess, onError)
+  }
+
+  fun addGroupMember(token: String, groupId: String, userId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    groupJsonRequest(token, "POST", "/api/groups/$groupId/members", JSONObject().apply { put("user_id", userId) }, onSuccess, onError)
+  }
+
+  fun removeGroupMember(token: String, groupId: String, userId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    groupJsonRequest(token, "DELETE", "/api/groups/$groupId/members/$userId", null, onSuccess, onError)
+  }
+
+  fun deactivateGroup(token: String, groupId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    groupJsonRequest(token, "DELETE", "/api/groups/$groupId", null, onSuccess, onError)
+  }
+
+  private fun groupJsonRequest(token: String, method: String, path: String, body: JSONObject?, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+      try {
+        val builder = Request.Builder().url("$BASE_URL$path").addHeader("Authorization", "Bearer $token")
+        val request = when (method) {
+          "POST" -> builder.post((body?.toString().orEmpty()).toRequestBody(jsonType)).build()
+          "PATCH" -> builder.patch((body?.toString().orEmpty()).toRequestBody(jsonType)).build()
+          "DELETE" -> builder.delete().build()
+          else -> builder.get().build()
+        }
+        client.newCall(request).execute().use { response ->
+          val obj = try { JSONObject(response.body?.string().orEmpty()) } catch (_: Exception) { JSONObject() }
+          if (!response.isSuccessful || !obj.optBoolean("success", false)) { withContext(Dispatchers.Main) { onError(obj.optString("error").ifBlank { "ग्रुप action अयशस्वी (HTTP ${response.code})" }) }; return@use }
+          withContext(Dispatchers.Main) { onSuccess() }
+        }
       } catch (error: Exception) { withContext(Dispatchers.Main) { onError(networkError(error)) } }
     }
   }
