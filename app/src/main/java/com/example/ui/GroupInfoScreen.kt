@@ -61,6 +61,7 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
   LaunchedEffect(group.id, session.token) { reload() }
 
   val canManage = detail?.let { session.role == UserRole.Admin || it.createdBy == session.id } == true
+  val isOwner = detail?.createdBy == session.id
 
   LaunchedEffect(manage, canManage) {
     if (manage && canManage) reloadManagedMembers()
@@ -127,16 +128,16 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
 
         if (manage && canManage) {
           item {
-            Surface(Modifier.fillMaxWidth().clickable { showEdit = true }, RoundedCornerShape(16.dp), color = Color.White) {
-              Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Edit, null, tint = HighDensityPrimary); Spacer(Modifier.width(12.dp)); Text("ग्रुप माहिती संपादित करा", fontWeight = FontWeight.Bold) }
-            }
-          }
-          item {
             Surface(Modifier.fillMaxWidth().clickable { showAdd = true }, RoundedCornerShape(16.dp), color = Color.White) {
               Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.PersonAdd, null, tint = HighDensityPrimary); Spacer(Modifier.width(12.dp)); Text("नोंदणीकृत सदस्य जोडा", fontWeight = FontWeight.Bold) }
             }
           }
-          if (session.role == UserRole.Admin || detail!!.createdBy == session.id) {
+          if (isOwner) {
+            item {
+              Surface(Modifier.fillMaxWidth().clickable { showEdit = true }, RoundedCornerShape(16.dp), color = Color.White) {
+                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Edit, null, tint = HighDensityPrimary); Spacer(Modifier.width(12.dp)); Text("ग्रुप माहिती संपादित करा", fontWeight = FontWeight.Bold) }
+              }
+            }
             item {
               OutlinedButton(onClick = {
                 BackendApi.deactivateGroup(session.token, group.id, onSuccess = onBack, onError = { actionError = it })
