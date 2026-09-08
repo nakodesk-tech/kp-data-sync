@@ -51,6 +51,10 @@ object GroupMemberManagementApi {
     request(token, "DELETE", "/api/groups/$groupId/management/members/$userId", null, { }, { onSuccess() }, onError)
   }
 
+  fun reactivateGroup(token: String, groupId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    request(token, "POST", "/api/groups/$groupId/reactivate", null, { }, { onSuccess() }, onError)
+  }
+
   private fun <T> request(token: String, method: String, path: String, body: JSONObject?, parse: (JSONObject) -> T, onSuccess: (T) -> Unit, onError: (String) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
