@@ -5,6 +5,7 @@ import { authRouter } from './routes/auth';
 import { userRouter } from './routes/user';
 import { schoolRouter } from './routes/schools';
 import { groupRouter } from './routes/groups';
+import { groupManagementRouter } from './routes/group-management';
 import { messageRouter } from './routes/messages';
 import { ChatRoom } from './chat-room';
 
@@ -25,7 +26,7 @@ app.get('/', (c) => c.json({
     health: 'GET /', login: 'POST /api/auth/login', setupAdmin: 'POST /api/auth/setup-admin',
     schools: 'GET /api/schools', registerSchool: 'POST /api/schools/register', updateSchool: 'PATCH /api/schools/:id', deleteSchool: 'DELETE /api/schools/:id',
     users: 'GET /api/user/directory', registerUser: 'POST /api/user/register', adminOverview: 'GET /api/user/admin/overview',
-    groups: 'GET /api/groups', createGroup: 'POST /api/groups', groupInfo: 'GET /api/groups/:id', updateGroup: 'PATCH /api/groups/:id', closeGroup: 'DELETE /api/groups/:id', groupMembers: 'POST/DELETE /api/groups/:id/members', groupPhoto: 'GET /api/groups/:id/photo',
+    groups: 'GET /api/groups', createGroup: 'POST /api/groups', groupInfo: 'GET /api/groups/:id', updateGroup: 'PATCH /api/groups/:id', closeGroup: 'DELETE /api/groups/:id', groupMembers: 'POST/DELETE /api/groups/:id/members', groupMemberManagement: 'GET/POST/PATCH/DELETE /api/groups/:id/management/members', groupPhoto: 'GET /api/groups/:id/photo',
     messages: 'GET /api/messages/:groupId', deleteMessage: 'DELETE /api/messages/:groupId/:messageId', messageAttachment: 'POST /api/messages/:groupId/attachment', messageAttachmentRead: 'GET /api/messages/:groupId/attachment/:messageId', realtime: 'GET /api/messages/:groupId/realtime'
   }
 }));
@@ -33,6 +34,7 @@ app.get('/', (c) => c.json({
 app.route('/api/auth', authRouter);
 app.route('/api/user', userRouter);
 app.route('/api/schools', schoolRouter);
+app.route('/api/groups', groupManagementRouter);
 app.route('/api/groups', groupRouter);
 app.route('/api/messages', messageRouter);
 
