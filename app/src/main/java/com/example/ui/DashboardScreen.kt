@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BackendApi
+import com.example.data.GroupMemberManagementApi
 import com.example.data.SyncRepository
 import com.example.model.*
 import com.example.ui.theme.HighDensityBackground
@@ -146,17 +147,37 @@ private fun NavItem(title: String, icon: androidx.compose.ui.graphics.vector.Ima
 @Composable
 private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit, onOpenChat: (ChatGroup) -> Unit) {
   var groups by remember { mutableStateOf(SyncRepository.initialGroups) }
+  var inactiveGroups by remember { mutableStateOf<List<ChatGroup>>(emptyList()) }
   var searchQuery by remember { mutableStateOf("") }
   var showCreateGroupScreen by remember { mutableStateOf(false) }
+  var showInactiveGroups by remember { mutableStateOf(false) }
   var groupsLoading by remember { mutableStateOf(true) }
+  var inactiveLoading by remember { mutableStateOf(true) }
   var groupLoadError by remember { mutableStateOf<String?>(null) }
+  var inactiveLoadError by remember { mutableStateOf<String?>(null) }
+  var reactivateTarget by remember { mutableStateOf<ChatGroup?>(null) }
+  var reactivating by remember { mutableStateOf(false) }
 
-  LaunchedEffect(session.token) {
+  fun reloadActiveGroups() {
     BackendApi.getGroups(
       token = session.token,
       onSuccess = { groups = it; groupsLoading = false; groupLoadError = null },
       onError = { groupsLoading = false; groupLoadError = it }
     )
+  }
+
+  fun reloadInactiveGroups() {
+    inactiveLoading = true
+    GroupMemberManagementApi.getInactiveGroups(
+      token = session.token,
+      onSuccess = { inactiveGroups = it; inactiveLoading = false; inactiveLoadError = null },
+      onError = { inactiveLoading = false; inactiveLoadError = it }
+    )
+  }
+
+  LaunchedEffect(session.token) {
+    reloadActiveGroups()
+    reloadInactiveGroups()
   }
 
   if (showCreateGroupScreen) {
@@ -171,8 +192,9 @@ private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit, onOpen
     return
   }
 
-  val visibleGroups = remember(groups, searchQuery, session.role) {
-    val scoped = groups.filter { isGroupVisible(it, session) }
+  val sourceGroups = if (showInactiveGroups) inactiveGroups else groups
+  val visibleGroups = remember(sourceGroups, searchQuery, session.role, showInactiveGroups) {
+    val scoped = sourceGroups.filter { showInactiveGroups || isGroupVisible(it, session) }
     if (searchQuery.isBlank()) scoped else scoped.filter {
       it.name.contains(searchQuery, true) || it.lastMessage.contains(searchQuery, true) || it.senderName.contains(searchQuery, true)
     }
@@ -204,19 +226,131 @@ private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit, onOpen
         onValueChange = { searchQuery = it },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        placeholder = { Text("Chats शोधा…") },
+        placeholder = { Text(if (showInactiveGroups) "Inactive Groups शोधा…" else "Chats शोधा…") },
         leadingIcon = { Icon(Icons.Default.Search, null) },
         shape = RoundedCornerShape(16.dp),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search)
       )
     }
 
-    if (groupsLoading) {
+    item {
+      Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+      ) {
+        Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+          GroupStatusTab(
+            title = "Active Groups",
+            count = groups.count { isGroupVisible(it, session) },
+            selected = !showInactiveGroups,
+            icon = Icons.Default.CheckCircle,
+            onClick = { showInactiveGroups = false; searchQuery = "" }
+          )
+          GroupStatusTab(
+            title = "Inactive Groups",
+            count = inactiveGroups.size,
+            selected = showInactiveGroups,
+            icon = Icons.Default.Archive,
+            onClick = { showInactiveGroups = true; searchQuery = "" }
+          )
+        }
+      }
+    }
+
+    if (!showInactiveGroups && groupsLoading) {
+      item { Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(28.dp), color = HighDensityPrimary) } }
+    } else if (showInactiveGroups && inactiveLoading) {
       item { Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(28.dp), color = HighDensityPrimary) } }
     } else if (visibleGroups.isEmpty()) {
-      item { EmptyCard(if (groupLoadError != null && groups.isEmpty()) "Chats load करता आले नाहीत. कृपया पुन्हा प्रयत्न करा." else if (searchQuery.isBlank()) "आपल्या भूमिकेसाठी सध्या कोणतेही Chats उपलब्ध नाहीत." else "दिलेल्या शोधासाठी Chat सापडला नाही.") }
+      item {
+        EmptyCard(
+          when {
+            showInactiveGroups && inactiveLoadError != null -> "Inactive Groups load करता आले नाहीत. कृपया पुन्हा प्रयत्न करा."
+            !showInactiveGroups && groupLoadError != null && groups.isEmpty() -> "Chats load करता आले नाहीत. कृपया पुन्हा प्रयत्न करा."
+            showInactiveGroups && searchQuery.isBlank() -> "सध्या कोणतेही Inactive Groups नाहीत."
+            searchQuery.isBlank() -> "आपल्या भूमिकेसाठी सध्या कोणतेही Chats उपलब्ध नाहीत."
+            else -> "दिलेल्या शोधासाठी Chat सापडला नाही."
+          }
+        )
+      }
+    } else if (showInactiveGroups) {
+      items(visibleGroups, key = { it.id }) { group ->
+        InactiveGroupRow(group, onReactivate = { reactivateTarget = group })
+      }
     } else {
       items(visibleGroups, key = { it.id }) { group -> ChatRow(group, onClick = { onOpenChat(group) }) }
+    }
+  }
+
+  reactivateTarget?.let { group ->
+    AlertDialog(
+      onDismissRequest = { if (!reactivating) reactivateTarget = null },
+      title = { Text("ग्रुप पुन्हा सक्रिय करायचा आहे?") },
+      text = { Text("${group.name} पुन्हा Active केल्यावर ग्रुप सदस्यांना पुन्हा Chat उपलब्ध होईल.") },
+      confirmButton = {
+        TextButton(
+          enabled = !reactivating,
+          onClick = {
+            reactivating = true
+            GroupMemberManagementApi.reactivateGroup(
+              token = session.token,
+              groupId = group.id,
+              onSuccess = {
+                reactivating = false
+                reactivateTarget = null
+                reloadActiveGroups()
+                reloadInactiveGroups()
+              },
+              onError = {
+                reactivating = false
+                inactiveLoadError = it
+              }
+            )
+          }
+        ) { Text("Active करा") }
+      },
+      dismissButton = { TextButton(enabled = !reactivating, onClick = { reactivateTarget = null }) { Text("रद्द करा") } }
+    )
+  }
+}
+
+@Composable
+private fun GroupStatusTab(title: String, count: Int, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+  Surface(
+    modifier = Modifier.weight(1f).clickable(onClick = onClick),
+    shape = RoundedCornerShape(11.dp),
+    color = if (selected) HighDensityPrimaryContainer else Color.Transparent
+  ) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp, horizontal = 7.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+      Icon(icon, null, tint = if (selected) HighDensityPrimary else Color(0xFF64748B), modifier = Modifier.size(17.dp))
+      Spacer(Modifier.width(5.dp))
+      Text(title, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold, color = if (selected) HighDensityPrimary else Color(0xFF475569), maxLines = 1, overflow = TextOverflow.Ellipsis)
+      Spacer(Modifier.width(4.dp))
+      Text("$count", fontSize = 10.sp, fontWeight = FontWeight.Black, color = if (selected) HighDensityPrimary else Color(0xFF64748B))
+    }
+  }
+}
+
+@Composable
+private fun InactiveGroupRow(group: ChatGroup, onReactivate: () -> Unit) {
+  Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color.White, tonalElevation = 1.dp) {
+    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+      Box(Modifier.size(46.dp).clip(CircleShape).background(Color(0xFFF1F5F9)), contentAlignment = Alignment.Center) {
+        Icon(Icons.Default.Archive, null, tint = Color(0xFF64748B))
+      }
+      Spacer(Modifier.width(12.dp))
+      Column(Modifier.weight(1f)) {
+        Text(group.name, fontWeight = FontWeight.Bold, color = HighDensityOnBackground, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("${group.memberCount} सदस्य • ${scopeLabel(group.scope)}", fontSize = 10.sp, color = Color(0xFF64748B))
+        Text("Inactive", fontSize = 9.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+      }
+      TextButton(onClick = onReactivate) {
+        Icon(Icons.Default.Restore, null, tint = HighDensityPrimary, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(3.dp))
+        Text("Active करा", color = HighDensityPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+      }
     }
   }
 }
