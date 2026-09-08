@@ -41,10 +41,7 @@ object RealtimeMessageApi {
         val response = client.newCall(Request.Builder().url("$BASE_URL/api/messages/$groupId/$messageId").header("Authorization", "Bearer $token").delete().build()).execute()
         response.use {
           val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
-          if (!response.isSuccessful || !json.optBoolean("success", false)) {
-            onError(json.optString("error").ifBlank { "संदेश हटवता आला नाही (HTTP ${response.code})" })
-            return@use
-          }
+          if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "संदेश हटवता आला नाही (HTTP ${response.code})" }); return@use }
           onSuccess()
         }
       } catch (e: Exception) { onError(networkError(e)) }
@@ -73,15 +70,46 @@ object RealtimeMessageApi {
     }.start()
   }
 
+  fun saveExcel(context: Context, token: String, groupId: String, messageId: String, uri: Uri, onSuccess: (Int, String) -> Unit, onError: (String) -> Unit) {
+    Thread {
+      try {
+        val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+        if (size > MAX_ATTACHMENT_BYTES) { onError("Excel file must be 50 MB or smaller"); return@Thread }
+        val mime = context.contentResolver.getType(uri)?.substringBefore(';')?.lowercase() ?: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        val body = object : RequestBody() {
+          override fun contentType() = mime.toMediaType()
+          override fun contentLength() = size
+          override fun writeTo(sink: BufferedSink) { context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) } ?: throw IllegalStateException("Excel file वाचता आली नाही.") }
+        }
+        val request = Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId").header("Authorization", "Bearer $token").put(body).build()
+        client.newCall(request).execute().use { response ->
+          val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
+          if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "Excel save failed (HTTP ${response.code})" }); return@use }
+          val data = json.optJSONObject("data") ?: JSONObject(); onSuccess(data.optInt("version", 1), data.optString("status", "editable"))
+        }
+      } catch (e: Exception) { onError(networkError(e)) }
+    }.start()
+  }
+
+  fun publishExcel(token: String, groupId: String, messageId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    Thread {
+      try {
+        val request = Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId/publish").header("Authorization", "Bearer $token").post(okhttp3.internal.Util.EMPTY_BYTE_ARRAY.toRequestBody(null)).build()
+        client.newCall(request).execute().use { response ->
+          val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
+          if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "Excel Reports मध्ये पाठवता आली नाही (HTTP ${response.code})" }); return@use }
+          onSuccess()
+        }
+      } catch (e: Exception) { onError(networkError(e)) }
+    }.start()
+  }
+
   fun attachmentUrl(groupId: String, messageId: String): String = "$BASE_URL/api/messages/$groupId/attachment/$messageId"
 
   private fun parseMessage(item: JSONObject): GroupMessage {
     val senderId = item.optString("sender_id").ifBlank { null }
-    return GroupMessage(id = item.optString("id"), groupId = item.optString("group_id"), groupName = item.optString("group_name").ifBlank { null }, senderId = senderId, senderName = item.optString("sender_name", "Unknown"), text = item.optString("content").ifBlank { null }, timestamp = item.optString("created_at"), messageType = item.optString("message_type", "text"), attachmentKey = item.optString("attachment_key").ifBlank { null }, attachmentName = item.optString("file_name").ifBlank { null }, mimeType = item.optString("mime_type").ifBlank { null }, fileSize = if (item.has("file_size") && !item.isNull("file_size")) item.optLong("file_size") else null, linkUrl = item.optString("link_url").ifBlank { null }, isDeleted = item.optInt("is_deleted", 0) == 1, isRead = item.optInt("is_read", 0) == 1, updatedAt = item.optString("updated_at").ifBlank { null }, mediaUrl = item.optString("media_url").ifBlank { null }, clientMessageId = item.optString("client_message_id").ifBlank { null }, isMe = false)
+    return GroupMessage(id = item.optString("id"), groupId = item.optString("group_id"), groupName = item.optString("group_name").ifBlank { null }, senderId = senderId, senderName = item.optString("sender_name", "Unknown"), text = item.optString("content").ifBlank { null }, timestamp = item.optString("created_at"), messageType = item.optString("message_type", "text"), attachmentKey = item.optString("attachment_key").ifBlank { null }, attachmentName = item.optString("file_name").ifBlank { null }, mimeType = item.optString("mime_type").ifBlank { null }, fileSize = if (item.has("file_size") && !item.isNull("file_size")) item.optLong("file_size") else null, linkUrl = item.optString("link_url").ifBlank { null }, isDeleted = item.optInt("is_deleted", 0) == 1, isRead = item.optInt("is_read", 0) == 1, updatedAt = item.optString("updated_at").ifBlank { null }, mediaUrl = item.optString("media_url").ifBlank { null }, clientMessageId = item.optString("client_message_id").ifBlank { null }, excelStatus = item.optString("excel_status", "editable"), excelVersion = item.optInt("excel_version", 1), excelPublishedAt = item.optString("excel_published_at").ifBlank { null }, excelPublishedBy = item.optString("excel_published_by").ifBlank { null }, isMe = false)
   }
 
-  private fun networkError(e: Exception): String {
-    val detail = e.message?.trim().orEmpty()
-    return if (detail.isBlank()) "Network error: unable to reach the KP Data Sync server." else "Network error: $detail"
-  }
+  private fun networkError(e: Exception): String { val detail = e.message?.trim().orEmpty(); return if (detail.isBlank()) "Network error: unable to reach the KP Data Sync server." else "Network error: $detail" }
 }
