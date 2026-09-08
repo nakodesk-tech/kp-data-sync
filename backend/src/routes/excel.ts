@@ -57,7 +57,7 @@ excelRouter.post('/reports/upload', async (c) => {
 
     await c.env.DB.prepare(`INSERT INTO messages (id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, is_deleted, is_read, excel_status, excel_version, excel_published_at, excel_published_by) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 0, 0, 'published', 1, CURRENT_TIMESTAMP, ?)`).bind(messageId, groupId, access.group.group_name || '', actor.id, actor.name || '', safeName, messageType, key, safeName, mimeType, uploaded.size, actor.id).run();
 
-    return c.json({ success: true, data: { id: messageId, group_id: groupId, group_name: access.group.group_name || '', sender_name: actor.name || '', file_name: safeName, mime_type: mimeType, file_size: uploaded.size, excel_version: 1, excel_status: 'published', excel_published_at: new Date().toISOString(), excel_published_by: actor.id } }, 201);
+    return c.json({ success: true, data: { id: messageId, group_id: groupId, group_name: access.group.group_name || '', sender_name: actor.name || '', publisher_role: actor.role || '', file_name: safeName, mime_type: mimeType, file_size: uploaded.size, excel_version: 1, excel_status: 'published', excel_published_at: new Date().toISOString(), excel_published_by: actor.id } }, 201);
   } catch (e: any) {
     console.error('Report upload failed:', e);
     return error(c, 'Unable to upload Report', 500);
@@ -118,8 +118,21 @@ excelRouter.post('/:groupId/:messageId/publish', async (c) => {
 });
 
 excelRouter.get('/reports', async (c) => {
-  const result = await c.env.DB.prepare(`SELECT m.id, m.group_id, m.group_name, m.sender_name, m.attachment_key, m.file_name, m.mime_type, m.file_size, m.excel_version, m.excel_published_at, m.excel_published_by, m.created_at, m.updated_at FROM messages m WHERE m.message_type IN ('excel', 'pdf') AND m.excel_status = 'published' AND m.is_deleted = 0 ORDER BY COALESCE(m.excel_published_at, m.created_at) DESC LIMIT 200`).all();
+  const result = await c.env.DB.prepare(`SELECT m.id, m.group_id, m.group_name, m.sender_name, m.attachment_key, m.file_name, m.mime_type, m.file_size, m.excel_version, m.excel_published_at, m.excel_published_by, m.created_at, m.updated_at, COALESCE(u.role, '') AS publisher_role FROM messages m LEFT JOIN users u ON u.id = m.excel_published_by WHERE m.message_type IN ('excel', 'pdf') AND m.excel_status = 'published' AND m.is_deleted = 0 ORDER BY COALESCE(m.excel_published_at, m.created_at) DESC LIMIT 200`).all();
   return c.json({ success: true, data: result.results || [] });
+});
+
+excelRouter.delete('/reports/:messageId', async (c) => {
+  const actor = c.get('user');
+  if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can delete Reports', 403);
+  const messageId = c.req.param('messageId');
+  const file = await c.env.DB.prepare(`SELECT id, attachment_key, group_id FROM messages WHERE id = ? AND message_type IN ('excel', 'pdf') AND excel_status = 'published' AND is_deleted = 0 LIMIT 1`).bind(messageId).first<any>();
+  if (!file) return error(c, 'Published Report not found', 404);
+  const access = await groupAccess(c.env.DB, actor, file.group_id);
+  if (!access.group || !access.allowed) return error(c, 'You do not have access to this group', 403);
+  if (file.attachment_key) await c.env.R2_BUCKET.delete(file.attachment_key);
+  await c.env.DB.prepare(`UPDATE messages SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(messageId).run();
+  return c.json({ success: true, data: { id: messageId, deleted: true } });
 });
 
 excelRouter.get('/:groupId/:messageId/status', async (c) => {
