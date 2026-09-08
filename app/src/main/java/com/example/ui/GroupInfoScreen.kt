@@ -20,6 +20,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BackendApi
+import com.example.data.GroupMemberManagementApi
+import com.example.data.ManagedGroupMember
 import com.example.model.*
 import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.HighDensityOnBackground
@@ -29,9 +31,11 @@ import com.example.ui.theme.HighDensityPrimaryContainer
 @Composable
 fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) {
   var detail by remember(group.id) { mutableStateOf<GroupInfo?>(null) }
+  var managedMembers by remember(group.id) { mutableStateOf<List<ManagedGroupMember>>(emptyList()) }
   var error by remember(group.id) { mutableStateOf<String?>(null) }
   var loading by remember(group.id) { mutableStateOf(true) }
   var manage by remember { mutableStateOf(false) }
+  var manageLoading by remember { mutableStateOf(false) }
   var editName by remember { mutableStateOf("") }
   var editDescription by remember { mutableStateOf("") }
   var showEdit by remember { mutableStateOf(false) }
@@ -45,15 +49,29 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
       onError = { error = it; loading = false }
     )
   }
+
+  fun reloadManagedMembers() {
+    manageLoading = true
+    GroupMemberManagementApi.getMembers(session.token, group.id,
+      onSuccess = { managedMembers = it; manageLoading = false },
+      onError = { actionError = it; manageLoading = false }
+    )
+  }
+
   LaunchedEffect(group.id, session.token) { reload() }
 
-  val isOwner = detail?.createdBy == session.id
+  val canManage = detail?.let { session.role == UserRole.Admin || it.createdBy == session.id } == true
+
+  LaunchedEffect(manage, canManage) {
+    if (manage && canManage) reloadManagedMembers()
+  }
+
   Column(Modifier.fillMaxSize().background(HighDensityBackground)) {
     Surface(color = Color.White, shadowElevation = 1.dp) {
       Row(Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back", tint = HighDensityOnBackground) }
         Text("ग्रुप माहिती", Modifier.weight(1f), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = HighDensityOnBackground)
-        if (isOwner) IconButton(onClick = { manage = !manage }) { Icon(if (manage) Icons.Default.Close else Icons.Default.Settings, "Manage group", tint = HighDensityPrimary) }
+        if (canManage) IconButton(onClick = { manage = !manage }) { Icon(if (manage) Icons.Default.Close else Icons.Default.Settings, "Manage group", tint = HighDensityPrimary) }
       }
     }
 
@@ -75,24 +93,39 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
           }
         }
         item { Text("सदस्य", fontSize = 18.sp, fontWeight = FontWeight.Black, color = HighDensityOnBackground) }
-        items(detail!!.members, key = { it.id }) { member ->
-          Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), color = Color.White) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-              Box(Modifier.size(42.dp).clip(CircleShape).background(HighDensityPrimaryContainer), contentAlignment = Alignment.Center) { Text(member.name.take(1).uppercase(), color = HighDensityPrimary, fontWeight = FontWeight.Bold) }
-              Spacer(Modifier.width(10.dp))
-              Column(Modifier.weight(1f)) {
-                Text(member.name, fontWeight = FontWeight.Bold, color = HighDensityOnBackground)
-                Text("${member.role.displayName} • ${member.roleInGroup}", fontSize = 10.sp, color = Color(0xFF64748B))
+
+        if (manage && canManage) {
+          if (manageLoading) {
+            item { Box(Modifier.fillMaxWidth().padding(18.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(modifier = Modifier.size(24.dp), color = HighDensityPrimary) } }
+          }
+          items(managedMembers, key = { it.id }) { member ->
+            ManagedMemberRow(member, member.id == session.id,
+              onSetActive = { active ->
+                GroupMemberManagementApi.setActive(session.token, group.id, member.id, active,
+                  onSuccess = { reloadManagedMembers(); reload() }, onError = { actionError = it })
+              },
+              onRemove = {
+                GroupMemberManagementApi.removeMember(session.token, group.id, member.id,
+                  onSuccess = { reloadManagedMembers(); reload() }, onError = { actionError = it })
               }
-              if (manage && isOwner && member.id != session.id) {
-                IconButton(onClick = {
-                  BackendApi.removeGroupMember(session.token, group.id, member.id, onSuccess = { reload() }, onError = { actionError = it })
-                }) { Icon(Icons.Default.PersonRemove, "Remove", tint = Color(0xFFB91C1C)) }
+            )
+          }
+        } else {
+          items(detail!!.members, key = { it.id }) { member ->
+            Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), color = Color.White) {
+              Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).clip(CircleShape).background(HighDensityPrimaryContainer), contentAlignment = Alignment.Center) { Text(member.name.take(1).uppercase(), color = HighDensityPrimary, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                  Text(member.name, fontWeight = FontWeight.Bold, color = HighDensityOnBackground)
+                  Text("${member.role.displayName} • ${member.roleInGroup}", fontSize = 10.sp, color = Color(0xFF64748B))
+                }
               }
             }
           }
         }
-        if (manage && isOwner) {
+
+        if (manage && canManage) {
           item {
             Surface(Modifier.fillMaxWidth().clickable { showEdit = true }, RoundedCornerShape(16.dp), color = Color.White) {
               Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Edit, null, tint = HighDensityPrimary); Spacer(Modifier.width(12.dp)); Text("ग्रुप माहिती संपादित करा", fontWeight = FontWeight.Bold) }
@@ -100,13 +133,15 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
           }
           item {
             Surface(Modifier.fillMaxWidth().clickable { showAdd = true }, RoundedCornerShape(16.dp), color = Color.White) {
-              Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.PersonAdd, null, tint = HighDensityPrimary); Spacer(Modifier.width(12.dp)); Text("सदस्य जोडा", fontWeight = FontWeight.Bold) }
+              Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.PersonAdd, null, tint = HighDensityPrimary); Spacer(Modifier.width(12.dp)); Text("नोंदणीकृत सदस्य जोडा", fontWeight = FontWeight.Bold) }
             }
           }
-          item {
-            OutlinedButton(onClick = {
-              BackendApi.deactivateGroup(session.token, group.id, onSuccess = onBack, onError = { actionError = it })
-            }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB91C1C))) { Text("ग्रुप बंद करा") }
+          if (session.role == UserRole.Admin || detail!!.createdBy == session.id) {
+            item {
+              OutlinedButton(onClick = {
+                BackendApi.deactivateGroup(session.token, group.id, onSuccess = onBack, onError = { actionError = it })
+              }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB91C1C))) { Text("ग्रुप बंद करा") }
+            }
           }
         }
         if (actionError != null) item { Text(actionError.orEmpty(), color = Color(0xFFB91C1C), fontSize = 11.sp) }
@@ -129,7 +164,25 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     dismissButton = { TextButton(onClick = { showEdit = false }) { Text("रद्द") } }
   )
 
-  if (showAdd && detail != null) AddMemberDialog(group, session, detail!!, onDismiss = { showAdd = false }, onAdded = { showAdd = false; reload() }, onError = { actionError = it })
+  if (showAdd && detail != null) AddMemberDialog(group, session, detail!!, onDismiss = { showAdd = false }, onAdded = { showAdd = false; reloadManagedMembers(); reload() }, onError = { actionError = it })
+}
+
+@Composable
+private fun ManagedMemberRow(member: ManagedGroupMember, isSelf: Boolean, onSetActive: (Boolean) -> Unit, onRemove: () -> Unit) {
+  Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), color = Color.White) {
+    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+      Box(Modifier.size(42.dp).clip(CircleShape).background(HighDensityPrimaryContainer), contentAlignment = Alignment.Center) { Text(member.name.take(1).uppercase(), color = HighDensityPrimary, fontWeight = FontWeight.Bold) }
+      Spacer(Modifier.width(10.dp))
+      Column(Modifier.weight(1f)) {
+        Text(member.name, fontWeight = FontWeight.Bold, color = HighDensityOnBackground)
+        Text("${member.role.displayName} • ${if (member.isActive) "सक्रिय" else "निष्क्रिय"}", fontSize = 10.sp, color = if (member.isActive) Color(0xFF16A34A) else Color(0xFF94A3B8))
+      }
+      if (!isSelf) {
+        IconButton(onClick = { onSetActive(!member.isActive) }) { Icon(if (member.isActive) Icons.Default.PersonOff else Icons.Default.PersonAdd, if (member.isActive) "Inactive" else "Active", tint = if (member.isActive) Color(0xFFD97706) else Color(0xFF16A34A)) }
+        IconButton(onClick = onRemove) { Icon(Icons.Default.PersonRemove, "Remove", tint = Color(0xFFB91C1C)) }
+      }
+    }
+  }
 }
 
 @Composable
@@ -137,19 +190,39 @@ private fun AddMemberDialog(group: ChatGroup, session: UserSession, detail: Grou
   var candidates by remember { mutableStateOf<List<GroupMemberCandidate>>(emptyList()) }
   var selected by remember { mutableStateOf<String?>(null) }
   var loading by remember { mutableStateOf(true) }
-  LaunchedEffect(Unit) { BackendApi.getUserDirectory(session.token, { candidates = it.filter { c -> c.id !in detail.members.map { m -> m.id } }; loading = false }, { onError(it); loading = false }) }
-  AlertDialog(onDismissRequest = onDismiss, title = { Text("सदस्य जोडा") }, text = {
-    if (loading) CircularProgressIndicator(color = HighDensityPrimary)
-    else LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      items(candidates, key = { it.id }) { candidate ->
-        Row(Modifier.fillMaxWidth().clickable { selected = candidate.id }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-          RadioButton(selected == candidate.id, { selected = candidate.id })
-          Column { Text(candidate.name, fontWeight = FontWeight.SemiBold); Text(candidate.email, fontSize = 10.sp, color = Color(0xFF64748B)) }
-        }
+  val existingIds = remember(detail.members) { detail.members.map { it.id }.toSet() }
+
+  LaunchedEffect(Unit) {
+    BackendApi.getUserDirectory(session.token, { all ->
+      candidates = all.filter { candidate ->
+        candidate.status.equals("Active", ignoreCase = true) &&
+          candidate.id !in existingIds &&
+          when (detail.scopeType) {
+            "system" -> true
+            "cluster" -> candidate.clusterCode == detail.clusterCode
+            "school" -> candidate.schoolCode == detail.schoolCode
+            else -> false
+          }
       }
-      if (candidates.isEmpty()) item { Text("जोडण्यासाठी नवीन सक्रिय सदस्य उपलब्ध नाही.", color = Color(0xFF64748B), fontSize = 12.sp) }
+      loading = false
+    }, { onError(it); loading = false })
+  }
+
+  AlertDialog(onDismissRequest = onDismiss, title = { Text("नोंदणीकृत सदस्य जोडा") }, text = {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Text("फक्त या ग्रुपच्या scope मधील सक्रिय नोंदणीकृत सदस्य दिसतील.", fontSize = 11.sp, color = Color(0xFF64748B))
+      if (loading) CircularProgressIndicator(color = HighDensityPrimary)
+      else LazyColumn(Modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(candidates, key = { it.id }) { candidate ->
+          Row(Modifier.fillMaxWidth().clickable { selected = candidate.id }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected == candidate.id, { selected = candidate.id })
+            Column { Text(candidate.name, fontWeight = FontWeight.SemiBold); Text("${candidate.role.displayName} • ${candidate.email}", fontSize = 10.sp, color = Color(0xFF64748B)) }
+          }
+        }
+        if (candidates.isEmpty()) item { Text("या scope मध्ये जोडण्यासाठी नवीन सक्रिय नोंदणीकृत सदस्य उपलब्ध नाही.", color = Color(0xFF64748B), fontSize = 12.sp) }
+      }
     }
-  }, confirmButton = { TextButton(enabled = selected != null, onClick = { BackendApi.addGroupMember(session.token, group.id, selected!!, onSuccess = onAdded, onError = onError) }) { Text("जोडा") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("रद्द") } })
+  }, confirmButton = { TextButton(enabled = selected != null, onClick = { GroupMemberManagementApi.addMember(session.token, group.id, selected!!, onSuccess = onAdded, onError = onError) }) { Text("जोडा") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("रद्द") } })
 }
 
 private fun scopeLabel(scope: String): String = when (scope) { "system" -> "संपूर्ण प्रणाली"; "cluster" -> "केंद्र"; "school" -> "शाळा"; else -> scope }
