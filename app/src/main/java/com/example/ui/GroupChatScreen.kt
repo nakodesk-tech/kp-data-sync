@@ -109,21 +109,30 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     return
   }
 
-  if (showMediaSheet) ModalBottomSheet(onDismissRequest = { showMediaSheet = false }) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-      Box(Modifier.fillMaxWidth().padding(bottom = 2.dp), contentAlignment = Alignment.Center) { Text("मीडिया पाठवा", fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+  if (showMediaSheet) ModalBottomSheet(
+    onDismissRequest = { showMediaSheet = false },
+    containerColor = Color.White,
+    contentColor = HighDensityOnBackground,
+    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    dragHandle = { Box(Modifier.padding(top = 8.dp).size(width = 56.dp, height = 5.dp).background(Color(0xFFD1D5DB), RoundedCornerShape(5.dp))) }
+  ) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+      Text("मीडिया पाठवा", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = HighDensityOnBackground)
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        MediaAction("Gallery", Icons.Default.Image, HighDensityPrimary) { showMediaSheet = false; galleryPicker.launch("image/*") }
-        MediaAction("Files", Icons.Default.Description, HighDensityPrimary) { showMediaSheet = false; filePicker.launch(arrayOf("image/*", "application/pdf", "text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "audio/*")) }
-        MediaAction("Camera", Icons.Default.CameraAlt, HighDensityPrimary) {
+        MediaAction("Gallery", Icons.Default.Image, Color(0xFF1E88E5)) { showMediaSheet = false; galleryPicker.launch("image/*") }
+        MediaAction("Camera", Icons.Default.CameraAlt, Color(0xFFE91E63)) {
           showMediaSheet = false
           val file = File.createTempFile("chat-camera-", ".jpg", context.cacheDir)
           cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
           cameraPicker.launch(cameraUri!!)
         }
-        MediaAction("Emoji", Icons.Default.EmojiEmotions, HighDensityPrimary) { showMediaSheet = false; showEmojiSheet = true }
+        MediaAction("Emoji", Icons.Default.EmojiEmotions, Color(0xFFFBC02D)) { showMediaSheet = false; showEmojiSheet = true }
       }
-      Spacer(Modifier.height(8.dp))
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+        Spacer(Modifier.width(4.dp))
+        MediaAction("Files", Icons.Default.Description, Color(0xFF7E57C2)) { showMediaSheet = false; filePicker.launch(arrayOf("image/*", "application/pdf", "text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "audio/*")) }
+      }
+      Spacer(Modifier.height(10.dp))
     }
   }
 
@@ -183,7 +192,23 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     Surface(color = Color.White, tonalElevation = 2.dp, modifier = if (imeVisible) Modifier.imePadding() else Modifier.navigationBarsPadding()) {
       Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.Bottom) {
         IconButton(enabled = !uploading, onClick = { showMediaSheet = true }) { Icon(Icons.Default.Add, "Media", tint = HighDensityPrimary) }
-        OutlinedTextField(value = input, onValueChange = { input = it; uploadError = null }, modifier = Modifier.weight(1f), placeholder = { Text("संदेश लिहा…") }, maxLines = 4, shape = RoundedCornerShape(20.dp))
+        OutlinedTextField(
+          value = input,
+          onValueChange = { input = it; uploadError = null },
+          modifier = Modifier.weight(1f),
+          placeholder = { Text("संदेश लिहा…", color = Color(0xFF64748B)) },
+          maxLines = 4,
+          shape = RoundedCornerShape(20.dp),
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color(0xFF1F2937),
+            unfocusedTextColor = Color(0xFF1F2937),
+            focusedPlaceholderColor = Color(0xFF64748B),
+            unfocusedPlaceholderColor = Color(0xFF64748B),
+            focusedBorderColor = Color(0xFF63D1B1),
+            unfocusedBorderColor = Color(0xFF63D1B1),
+            cursorColor = HighDensityPrimary
+          )
+        )
         IconButton(enabled = input.isNotBlank(), onClick = { val sent = connectionManager.sendText(input); if (sent == null) uploadError = "Realtime connection उपलब्ध नाही." else input = "" }) { Icon(Icons.Default.Send, "Send", tint = if (input.isNotBlank()) HighDensityPrimary else Color(0xFF94A3B8)) }
       }
     }
@@ -192,9 +217,9 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
 
 @Composable
 private fun MediaAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, onClick: () -> Unit) {
-  Column(Modifier.width(72.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
-    Surface(shape = RoundedCornerShape(22.dp), color = HighDensityPrimaryContainer) { Box(Modifier.size(62.dp), contentAlignment = Alignment.Center) { Icon(icon, label, tint = tint, modifier = Modifier.size(30.dp)) } }
-    Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HighDensityOnBackground)
+  Column(Modifier.width(100.dp).clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(shape = RoundedCornerShape(32.dp), color = Color(0xFFF1F3F5)) { Box(Modifier.size(width = 96.dp, height = 64.dp), contentAlignment = Alignment.Center) { Icon(icon, label, tint = tint, modifier = Modifier.size(32.dp)) } }
+    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = HighDensityOnBackground)
   }
 }
 
