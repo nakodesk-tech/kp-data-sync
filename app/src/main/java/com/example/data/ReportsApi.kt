@@ -34,11 +34,7 @@ object ReportsApi {
   fun getPublishedReports(token: String, onSuccess: (List<ExcelReport>) -> Unit, onError: (String) -> Unit) {
     Thread {
       try {
-        val request = Request.Builder()
-          .url("$BASE_URL/api/excel/reports")
-          .header("Authorization", "Bearer $token")
-          .get()
-          .build()
+        val request = Request.Builder().url("$BASE_URL/api/excel/reports").header("Authorization", "Bearer $token").get().build()
         client.newCall(request).execute().use { response ->
           val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
           if (!response.isSuccessful || !json.optBoolean("success", false)) {
@@ -146,7 +142,7 @@ object ReportsApi {
     Thread {
       try {
         val request = Request.Builder()
-          .url("$BASE_URL/api/messages/${report.groupId}/attachment/${report.id}")
+          .url("$BASE_URL/api/excel/reports/${report.id}/download")
           .header("Authorization", "Bearer $token")
           .get()
           .build()
