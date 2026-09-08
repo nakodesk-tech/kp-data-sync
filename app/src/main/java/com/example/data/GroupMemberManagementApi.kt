@@ -1,5 +1,6 @@
 package com.example.data
 
+import com.example.model.ChatGroup
 import com.example.model.UserRole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,32 @@ object GroupMemberManagementApi {
           val item = array.optJSONObject(i) ?: continue
           val role = UserRole.values().firstOrNull { it.roleName == item.optString("role") } ?: UserRole.Teacher
           add(ManagedGroupMember(item.optString("id"), item.optString("name"), item.optString("email"), role, item.optString("role_in_group", "member"), item.optInt("is_active", 1) == 1))
+        }
+      }
+    }, onSuccess, onError)
+  }
+
+  fun getInactiveGroups(token: String, onSuccess: (List<ChatGroup>) -> Unit, onError: (String) -> Unit) {
+    request(token, "GET", "/api/groups/inactive", null, { obj ->
+      val array = obj.optJSONArray("data") ?: org.json.JSONArray()
+      buildList {
+        for (i in 0 until array.length()) {
+          val item = array.optJSONObject(i) ?: continue
+          add(
+            ChatGroup(
+              id = item.optString("id"),
+              name = item.optString("group_name"),
+              lastMessage = "निष्क्रिय ग्रुप",
+              senderName = "",
+              unreadCount = 0,
+              time = item.optString("created_at"),
+              scope = item.optString("scope_type"),
+              groupType = item.optString("group_type", "general"),
+              memberCount = item.optInt("member_count", 0),
+              photoKey = item.optString("photo_key").ifBlank { null },
+              isActive = false
+            )
+          )
         }
       }
     }, onSuccess, onError)
