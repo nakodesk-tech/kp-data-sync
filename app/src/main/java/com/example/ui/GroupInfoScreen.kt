@@ -47,7 +47,7 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
   fun reload() {
     loading = true
     BackendApi.getGroupInfo(session.token, group.id,
-      onSuccess = { detail = it; editName = it.name; editDescription = it.description.orEmpty(); loading = false; error = null },
+      onSuccess = { info -> detail = info.copy(isActive = group.isActive); editName = info.name; editDescription = info.description.orEmpty(); loading = false; error = null },
       onError = { error = it; loading = false }
     )
   }
@@ -65,13 +65,13 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     lifecycleLoading = true
     actionError = null
     if (active) {
-      BackendApi.reactivateGroup(session.token, group.id,
+      GroupMemberManagementApi.reactivateGroup(session.token, group.id,
         onSuccess = { lifecycleLoading = false; reload(); reloadManagedMembers() },
         onError = { lifecycleLoading = false; actionError = it }
       )
     } else {
       BackendApi.deactivateGroup(session.token, group.id,
-        onSuccess = { lifecycleLoading = false; reload(); reloadManagedMembers() },
+        onSuccess = { lifecycleLoading = false; reload() },
         onError = { lifecycleLoading = false; actionError = it }
       )
     }
@@ -83,7 +83,7 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
   val isOwner = detail?.createdBy == session.id
 
   LaunchedEffect(manage, canManage, detail?.isActive) {
-    if (manage && canManage) reloadManagedMembers()
+    if (manage && canManage && detail?.isActive == true) reloadManagedMembers()
   }
 
   Column(Modifier.fillMaxSize().background(HighDensityBackground)) {
