@@ -49,7 +49,7 @@ object MediaAutoDownloadSettings {
   }
 
   fun shouldAutoDownload(context: Context, messageType: String): Boolean {
-    val mode = get(context, currentNetwork())
+    val mode = get(context, currentNetwork(context))
     return when {
       mode == IMAGES_AND_FILES -> true
       mode == IMAGES -> messageType == "image"
