@@ -34,9 +34,9 @@ excelRouter.post('/reports/upload', async (c) => {
   try {
     const form = await c.req.formData();
     const groupId = String(form.get('group_id') || '').trim();
-    const uploaded = form.get('file');
+    const uploaded = form.get('file') as File | null;
+    if (!uploaded || typeof uploaded.stream !== 'function') return error(c, 'Report file is required');
     if (!groupId) return error(c, 'Report group is required');
-    if (!(uploaded instanceof File)) return error(c, 'Report file is required');
     if (uploaded.size <= 0) return error(c, 'Report file is empty');
     if (uploaded.size > MAX_EXCEL_BYTES) return error(c, 'Report file must be 50 MB or smaller');
     const mimeType = (uploaded.type || '').split(';')[0].trim().toLowerCase();
