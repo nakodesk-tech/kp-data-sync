@@ -29,8 +29,31 @@ fun NotificationCreateScreen(session: UserSession, onBack: () -> Unit, onPublish
   var saving by remember { mutableStateOf(false) }
   var error by remember { mutableStateOf<String?>(null) }
   var showSuccess by remember { mutableStateOf(false) }
+  var savedAsDraft by remember { mutableStateOf(false) }
 
   BackHandler(enabled = !saving) { onBack() }
+
+  fun createNotification(publishNow: Boolean) {
+    saving = true
+    error = null
+    NotificationApi.createDraft(
+      session, title, content, scopeType, scopeId.ifBlank { null },
+      onSuccess = { id ->
+        if (publishNow) {
+          NotificationApi.publish(
+            session, id,
+            onSuccess = { saving = false; savedAsDraft = false; showSuccess = true },
+            onError = { saving = false; error = it }
+          )
+        } else {
+          saving = false
+          savedAsDraft = true
+          showSuccess = true
+        }
+      },
+      onError = { saving = false; error = it }
+    )
+  }
 
   Scaffold(
     containerColor = HighDensityBackground,
@@ -62,26 +85,26 @@ fun NotificationCreateScreen(session: UserSession, onBack: () -> Unit, onPublish
         OutlinedTextField(scopeId, { scopeId = it; error = null }, Modifier.fillMaxWidth(), label = { Text(if (scopeType == "cluster") "Cluster Code" else "School Code") }, singleLine = true, enabled = !saving)
       }
       error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-      Button(
-        enabled = !saving && title.isNotBlank() && content.isNotBlank() && (scopeType == "system" || scopeId.isNotBlank()),
-        modifier = Modifier.fillMaxWidth().height(50.dp),
-        onClick = {
-          saving = true; error = null
-          NotificationApi.createDraft(session, title, content, scopeType, scopeId.ifBlank { null },
-            onSuccess = { id ->
-              NotificationApi.publish(session, id, onSuccess = { saving = false; showSuccess = true }, onError = { saving = false; error = it })
-            },
-            onError = { saving = false; error = it }
-          )
-        }
-      ) { Text(if (saving) "प्रकाशित करत आहे…" else "सूचना प्रकाशित करा") }
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedButton(
+          enabled = !saving && title.isNotBlank() && content.isNotBlank() && (scopeType == "system" || scopeId.isNotBlank()),
+          modifier = Modifier.weight(1f).height(50.dp),
+          onClick = { createNotification(false) }
+        ) { Text(if (saving) "जतन करत आहे…" else "Draft जतन करा", fontWeight = FontWeight.Bold) }
+        Button(
+          enabled = !saving && title.isNotBlank() && content.isNotBlank() && (scopeType == "system" || scopeId.isNotBlank()),
+          modifier = Modifier.weight(1f).height(50.dp),
+          onClick = { createNotification(true) }
+        ) { Text(if (saving) "प्रक्रिया…" else "सूचना प्रकाशित करा", fontWeight = FontWeight.Bold) }
+      }
     }
   }
+
   if (showSuccess) {
     AlertDialog(
       onDismissRequest = { showSuccess = false; onPublished() },
-      title = { Text("सूचना प्रकाशित झाली") },
-      text = { Text("सूचना यशस्वीपणे प्रकाशित झाली आहे.") },
+      title = { Text(if (savedAsDraft) "Draft जतन झाला" else "सूचना प्रकाशित झाली") },
+      text = { Text(if (savedAsDraft) "सूचना Draft Notifications मध्ये जतन झाली आहे." else "सूचना यशस्वीपणे प्रकाशित झाली आहे.") },
       confirmButton = { TextButton(onClick = { showSuccess = false; onPublished() }) { Text("ठीक आहे") } }
     )
   }
