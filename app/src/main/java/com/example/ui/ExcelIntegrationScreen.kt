@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class ExcelImportMode { Schools, Users }
-private data class ImportRow(val rowNumber: Int, val values: Map<String, String>)
+internal data class ImportRow(val rowNumber: Int, val values: Map<String, String>)
 private data class ImportIssue(val row: Int, val message: String)
 private data class ImportPreview(val rows: List<ImportRow>, val issues: List<ImportIssue>)
 
