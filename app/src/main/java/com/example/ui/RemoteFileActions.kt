@@ -111,8 +111,6 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
         dismissOnClickOutside = false
       )
     ) {
-      // The editor is a separate Dialog window. Keep that window edge-to-edge too;
-      // the editor Scaffold consumes navigation/IME insets for its controls.
       Surface(Modifier.fillMaxSize(), color = Color.White) {
         InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
       }
