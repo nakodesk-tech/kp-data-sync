@@ -26,6 +26,14 @@ function notificationScope(user: Variables['user']) {
   };
 }
 
+function audienceScope(user: Variables['user'], scopeType: string, scopeId: string | null) {
+  if (scopeType === 'system') return { sql: `1 = 1`, params: [] as string[] };
+  if (!scopeId) return null;
+  if (scopeType === 'cluster') return { sql: `u.cluster_code = ?`, params: [scopeId] };
+  if (scopeType === 'school') return { sql: `u.school_code = ?`, params: [scopeId] };
+  return null;
+}
+
 notificationRouter.use('*', authMiddleware());
 
 notificationRouter.post('/', async (c) => {
@@ -44,6 +52,11 @@ notificationRouter.post('/', async (c) => {
     if (scopeType !== 'system' && !scopeId) return error(c, 'Notification scope_id is required for cluster or school scope');
     if (title.length > 200) return error(c, 'Notification title is too long');
     if (content.length > 5000) return error(c, 'Notification content is too long');
+    if (actor.role === 'Cluster_Head' && scopeType === 'cluster' && scopeId !== actor.cluster_code) return error(c, 'Cluster Head can only target their own cluster', 403);
+    if (actor.role === 'Cluster_Head' && scopeType === 'school') {
+      const school = await c.env.DB.prepare(`SELECT id FROM schools WHERE udise_code = ? AND cluster_code = ? AND is_active = 1 LIMIT 1`).bind(scopeId, actor.cluster_code || '').first();
+      if (!school) return error(c, 'Cluster Head can only target a school in their cluster', 403);
+    }
 
     const id = crypto.randomUUID();
     await c.env.DB.prepare(`
@@ -74,12 +87,19 @@ notificationRouter.post('/:id/publish', async (c) => {
   const notificationId = c.req.param('id');
   try {
     const notification = await c.env.DB.prepare(`
-      SELECT id, status FROM notifications
+      SELECT id, status, scope_type, scope_id FROM notifications
       WHERE id = ? AND is_deleted = 0 LIMIT 1
     `).bind(notificationId).first<any>();
     if (!notification) return error(c, 'Notification not found', 404);
     if (notification.status === 'published') return error(c, 'Notification is already published', 409);
     if (notification.status === 'deleted') return error(c, 'Deleted notification cannot be published', 409);
+    if (actor.role === 'Cluster_Head') {
+      if (notification.scope_type === 'cluster' && notification.scope_id !== actor.cluster_code) return error(c, 'Cluster Head can only publish notifications for their cluster', 403);
+      if (notification.scope_type === 'school') {
+        const school = await c.env.DB.prepare(`SELECT id FROM schools WHERE udise_code = ? AND cluster_code = ? AND is_active = 1 LIMIT 1`).bind(notification.scope_id, actor.cluster_code || '').first();
+        if (!school) return error(c, 'Cluster Head can only publish a school notification in their cluster', 403);
+      }
+    }
     await c.env.DB.prepare(`
       UPDATE notifications
       SET status = 'published', published_at = CURRENT_TIMESTAMP,
@@ -96,7 +116,10 @@ notificationRouter.post('/:id/publish', async (c) => {
 notificationRouter.get('/', async (c) => {
   try {
     const limit = Math.min(Math.max(Number(c.req.query('limit') || 50), 1), 100);
+    const requestedStatus = c.req.query('status') || 'published';
+    if (!['published', 'draft'].includes(requestedStatus)) return error(c, 'Invalid notification status');
     const user = c.get('user');
+    if (requestedStatus === 'draft' && !isPublisher(user.role)) return error(c, 'Only App Admin or Cluster Head can view drafts', 403);
     const scope = notificationScope(user);
     const result = await c.env.DB.prepare(`
       SELECT n.id, n.title, n.content, n.scope_type, n.scope_id,
@@ -109,10 +132,12 @@ notificationRouter.get('/', async (c) => {
       FROM notifications n
       LEFT JOIN notification_reads nr
         ON nr.notification_id = n.id AND nr.user_id = ?
-      WHERE n.status = 'published' AND n.is_deleted = 0 AND ${scope.sql}
+      WHERE n.status = ? AND n.is_deleted = 0 AND ${requestedStatus === 'published' ? scope.sql : `n.publisher_id = ?`}
       ORDER BY COALESCE(n.published_at, n.created_at) DESC
       LIMIT ?
-    `).bind(user.id, ...scope.params, limit).all();
+    `).bind(
+      ...(requestedStatus === 'published' ? [user.id, requestedStatus, ...scope.params, limit] : [user.id, requestedStatus, user.id, limit])
+    ).all();
     return c.json({ success: true, data: result.results || [] });
   } catch (e: any) {
     console.error('NOTIFICATION_LIST_ERROR:', e);
@@ -159,24 +184,45 @@ notificationRouter.post('/:id/read', async (c) => {
   }
 });
 
-notificationRouter.post('/:id/dismiss', async (c) => {
+notificationRouter.get('/:id/audience', async (c) => {
   const user = c.get('user');
+  if (!isPublisher(user.role)) return error(c, 'Only App Admin or Cluster Head can view notification audience', 403);
   const notificationId = c.req.param('id');
+  const requestedStatus = c.req.query('status') || 'read';
+  if (!['read', 'unread'].includes(requestedStatus)) return error(c, 'Invalid audience status');
   try {
-    const scope = notificationScope(user);
     const notification = await c.env.DB.prepare(`
-      SELECT n.id FROM notifications n
-      WHERE n.id = ? AND n.status = 'published' AND n.is_deleted = 0 AND ${scope.sql} LIMIT 1
-    `).bind(notificationId, ...scope.params).first<{ id: string }>();
+      SELECT id, scope_type, scope_id, publisher_id
+      FROM notifications WHERE id = ? AND status = 'published' AND is_deleted = 0 LIMIT 1
+    `).bind(notificationId).first<any>();
     if (!notification) return error(c, 'Notification not found', 404);
-    await c.env.DB.prepare(`
-      INSERT INTO notification_reads (id, notification_id, user_id, read_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(notification_id, user_id) DO UPDATE SET read_at = CURRENT_TIMESTAMP
-    `).bind(crypto.randomUUID(), notificationId, user.id).run();
-    return c.json({ success: true, data: { notification_id: notificationId, dismissed: true } });
+    if (user.role === 'Cluster_Head') {
+      if (notification.scope_type === 'system') return error(c, 'Audience controls are not available for system notifications to Cluster Head', 403);
+      if (notification.scope_type === 'cluster' && notification.scope_id !== user.cluster_code) return error(c, 'Notification is outside your cluster', 403);
+      if (notification.scope_type === 'school') {
+        const school = await c.env.DB.prepare(`SELECT id FROM schools WHERE udise_code = ? AND cluster_code = ? AND is_active = 1 LIMIT 1`).bind(notification.scope_id, user.cluster_code || '').first();
+        if (!school) return error(c, 'Notification is outside your cluster', 403);
+      }
+    }
+    const scope = audienceScope(user, notification.scope_type, notification.scope_id);
+    if (!scope) return error(c, 'Invalid notification audience scope', 400);
+    const readJoin = requestedStatus === 'read'
+      ? `JOIN notification_reads nr ON nr.notification_id = ? AND nr.user_id = u.id`
+      : `LEFT JOIN notification_reads nr ON nr.notification_id = ? AND nr.user_id = u.id`;
+    const readWhere = requestedStatus === 'read' ? `AND nr.notification_id IS NOT NULL` : `AND nr.notification_id IS NULL`;
+    const result = await c.env.DB.prepare(`
+      SELECT u.id, u.name, u.role,
+        COALESCE(NULLIF(u.school_name, ''), s.school_name, '') AS school_name,
+        nr.read_at
+      FROM users u
+      LEFT JOIN schools s ON s.udise_code = u.school_code
+      ${readJoin}
+      WHERE u.status = 'Active' AND ${scope.sql} ${readWhere}
+      ORDER BY u.name COLLATE NOCASE ASC
+    `).bind(notificationId, ...scope.params).all();
+    return c.json({ success: true, data: result.results || [] });
   } catch (e: any) {
-    console.error('NOTIFICATION_DISMISS_ERROR:', e);
-    return error(c, 'Unable to dismiss notification', 500);
+    console.error('NOTIFICATION_AUDIENCE_ERROR:', e);
+    return error(c, 'Unable to load notification audience', 500);
   }
 });
