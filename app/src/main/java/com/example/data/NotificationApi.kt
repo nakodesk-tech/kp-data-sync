@@ -29,6 +29,12 @@ object NotificationApi {
     request(session.token, "POST", "/api/notifications/$notificationId/publish", null, onSuccess = { onSuccess() }, onError)
   }
 
+  fun unreadCount(session: UserSession, onSuccess: (Int) -> Unit, onError: (String) -> Unit) {
+    request(session.token, "GET", "/api/notifications/unread-count", null, onSuccess = { obj ->
+      onSuccess(obj.optInt("count", obj.optJSONObject("data")?.optInt("count", 0) ?: 0))
+    }, onError)
+  }
+
   fun list(session: UserSession, onSuccess: (List<NotificationItem>) -> Unit, onError: (String) -> Unit) {
     request(session.token, "GET", "/api/notifications", null, onSuccess = { obj ->
       val array = obj.optJSONArray("data")
