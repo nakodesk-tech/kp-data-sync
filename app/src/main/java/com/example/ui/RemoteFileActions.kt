@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.example.data.RealtimeMessageApi
 import com.example.data.ReportsApi
-import com.example.model.ExcelReport
+import com.example.data.ExcelReport
 import com.example.model.GroupMessage
 import java.io.File
 import java.io.FileOutputStream
