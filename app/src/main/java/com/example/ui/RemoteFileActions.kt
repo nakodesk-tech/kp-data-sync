@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -103,7 +104,7 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
     message.text?.takeIf { it.startsWith("Sent from Reports By ") }?.let { originTag ->
       Surface(Modifier.wrapContentWidth(), color = Color(0xFFEAF2FF), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-          Icon(Icons.Default.Send, null, tint = Color(0xFF2563EB), modifier = Modifier.size(13.dp))
+          Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color(0xFF2563EB), modifier = Modifier.size(13.dp))
           Spacer(Modifier.width(4.dp))
           Text(originTag, fontSize = 8.sp, color = Color(0xFF1D4ED8), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
