@@ -72,7 +72,15 @@ messageRouter.post('/:id/attachment', async (c) => {
   if (!access.allowed) return error(c, 'You do not have access to this group', 403);
   const messageType = (c.req.header('X-Message-Type') || '').trim().toLowerCase();
   const mimeType = (c.req.header('Content-Type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
-  const fileName = (c.req.header('X-File-Name') || 'attachment').trim().slice(0, 240);
+
+  // Android clients percent-encode UTF-8 filenames before putting them in this header,
+  // because raw Unicode is rejected by OkHttp/HTTP header validation. Decode here once,
+  // while remaining backward-compatible with older clients that sent plain ASCII names.
+  const encodedFileName = (c.req.header('X-File-Name') || 'attachment').trim().slice(0, 2048);
+  let fileName = encodedFileName;
+  try { fileName = decodeURIComponent(encodedFileName); } catch (_) { /* legacy/plain header value */ }
+  fileName = fileName.trim().slice(0, 240);
+
   const declaredSize = Number(c.req.header('Content-Length') || 0);
   if (!['image', 'excel', 'pdf', 'audio'].includes(messageType)) return error(c, 'Unsupported attachment message type');
   if (!MESSAGE_TYPES.has(messageType)) return error(c, 'Invalid message type');
