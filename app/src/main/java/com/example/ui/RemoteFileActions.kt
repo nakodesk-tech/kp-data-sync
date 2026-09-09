@@ -103,10 +103,12 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
 
   if (showEditor && isXlsx && !localPublished) {
     Dialog(onDismissRequest = { if (!busy) showEditor = false }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
-      // Dialogs are separate windows, so apply the same permanent navigation-bar
-      // safety rule explicitly here as well as at the application root.
-      Surface(Modifier.fillMaxSize().navigationBarsPadding(), color = Color.White) {
-        InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
+      // Dialogs are separate windows; ensure the dialog content permanently stays
+      // within the accessible bounds of the device.
+      Surface(Modifier.fillMaxSize(), color = Color.White) {
+        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+          InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
+        }
       }
     }
   }

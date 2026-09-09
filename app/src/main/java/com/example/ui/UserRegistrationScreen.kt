@@ -57,8 +57,22 @@ fun UserRegistrationScreen(session: UserSession, onBack: () -> Unit, onRegistere
     BackendApi.getSchools(onSuccess = { schools = it; schoolLoading = false; showSchoolPicker = true }, onError = { schoolLoading = false; error = it })
   }
 
-  Box(Modifier.fillMaxSize().background(HighDensityBackground)) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+  Box(
+    Modifier
+      .fillMaxSize()
+      .background(HighDensityBackground)
+      .statusBarsPadding()
+      .navigationBarsPadding()
+      .imePadding()
+  ) {
+    Column(
+      Modifier
+        .fillMaxSize()
+        .verticalScroll(rememberScrollState())
+        .imePadding()
+        .padding(20.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
         Column(Modifier.weight(1f)) {

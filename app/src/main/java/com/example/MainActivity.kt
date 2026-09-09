@@ -36,25 +36,36 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun keepSystemBarsVisible() {
-    WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+    val controller = WindowCompat.getInsetsController(window, window.decorView)
+    controller.show(WindowInsetsCompat.Type.systemBars())
+    controller.isAppearanceLightStatusBars = true
+    controller.isAppearanceLightNavigationBars = true
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     removeSecureFlag()
-    // Keep the app edge-to-edge, while the root content permanently reserves the
-    // navigation-bar inset. This prevents any current or future bottom controls
-    // from being rendered underneath the Android navigation area.
+    // Permanently configure edge-to-edge system bars while ensuring the root app
+    // permanently guards status bars, cutouts, navigation bars, and keyboard insets.
     enableEdgeToEdge()
     keepSystemBarsVisible()
     val restoredSession = SessionStore.load(this)
     setContent {
       MyApplicationTheme {
         Surface(
-          Modifier.fillMaxSize().navigationBarsPadding(),
+          modifier = Modifier.fillMaxSize(),
           color = HighDensityBackground
         ) {
-          MainApp(initialSession = restoredSession, onExitApp = { finishAndRemoveTask() })
+          // Permanent edge-to-edge safe drawing container for every current and future screen.
+          // This guarantees that status bars, display cutouts (camera notches), navigation
+          // bars, and keyboard (IME) insets are permanently handled in the device's accessible window.
+          Box(
+            modifier = Modifier
+              .fillMaxSize()
+              .safeDrawingPadding()
+          ) {
+            MainApp(initialSession = restoredSession, onExitApp = { finishAndRemoveTask() })
+          }
         }
       }
     }

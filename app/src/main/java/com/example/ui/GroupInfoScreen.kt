@@ -101,7 +101,14 @@ fun GroupInfoScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
     } else if (detail == null) {
       Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) { Text(error ?: "ग्रुप माहिती उपलब्ध नाही.", color = Color(0xFF64748B)) }
     } else {
-      LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 16.dp)) {
+      LazyColumn(
+        Modifier
+          .fillMaxSize()
+          .navigationBarsPadding()
+          .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(vertical = 16.dp)
+      ) {
         item {
           Surface(Modifier.fillMaxWidth(), RoundedCornerShape(22.dp), color = Color.White) {
             Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {

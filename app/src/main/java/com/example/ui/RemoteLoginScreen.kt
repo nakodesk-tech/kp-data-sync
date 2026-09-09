@@ -3,8 +3,10 @@ package com.example.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -48,8 +50,15 @@ fun RemoteLoginScreen(onLoginSuccess: (UserSession) -> Unit, onAdminRegistration
     unfocusedContainerColor = Color.White
   )
 
-  Box(Modifier.fillMaxSize().background(HighDensityBackground).statusBarsPadding().navigationBarsPadding()) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+  Box(Modifier.fillMaxSize().background(HighDensityBackground).statusBarsPadding().navigationBarsPadding().imePadding()) {
+    Column(
+      Modifier
+        .fillMaxSize()
+        .verticalScroll(rememberScrollState())
+        .imePadding()
+        .padding(horizontal = 24.dp, vertical = 20.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
       Spacer(Modifier.height(16.dp))
       Box(Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).background(BrandGreen), contentAlignment = Alignment.Center) {
         Icon(Icons.Default.School, contentDescription = "App Logo", tint = Color.White, modifier = Modifier.size(44.dp))
