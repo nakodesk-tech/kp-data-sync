@@ -102,13 +102,19 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
   }
 
   if (showEditor && isXlsx && !localPublished) {
-    Dialog(onDismissRequest = { if (!busy) showEditor = false }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
-      // Dialogs are separate windows; ensure the dialog content permanently stays
-      // within the accessible bounds of the device.
+    Dialog(
+      onDismissRequest = { if (!busy) showEditor = false },
+      properties = DialogProperties(
+        usePlatformDefaultWidth = false,
+        decorFitsSystemWindows = false,
+        dismissOnBackPress = false,
+        dismissOnClickOutside = false
+      )
+    ) {
+      // The editor is a separate Dialog window. Keep that window edge-to-edge too;
+      // the editor Scaffold consumes navigation/IME insets for its controls.
       Surface(Modifier.fillMaxSize(), color = Color.White) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-          InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
-        }
+        InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
       }
     }
   }
