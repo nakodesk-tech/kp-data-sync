@@ -8,11 +8,94 @@ function error(c: any, message: string, status = 400) {
   return c.json({ success: false, error: message }, status);
 }
 
+function isPublisher(role: string) {
+  return role === 'Admin' || role === 'Cluster_Head';
+}
+
 notificationRouter.use('*', authMiddleware());
 
-// List notifications visible to the authenticated user.
-// Scope filtering is intentionally limited in this phase; recipient/scope rules
-// will be tightened when notification delivery scope is implemented.
+// Create a notification draft. Only Admin and Cluster Head may publish notifications.
+notificationRouter.post('/', async (c) => {
+  const actor = c.get('user');
+  if (!isPublisher(actor.role)) return error(c, 'Only App Admin or Cluster Head can create notifications', 403);
+
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const content = typeof body.content === 'string' ? body.content.trim() : '';
+    const scopeType = typeof body.scope_type === 'string' ? body.scope_type.trim() : '';
+    const scopeId = body.scope_id == null ? null : String(body.scope_id).trim();
+
+    if (!title) return error(c, 'Notification title is required');
+    if (!content) return error(c, 'Notification content is required');
+    if (!scopeType) return error(c, 'Notification scope_type is required');
+    if (title.length > 200) return error(c, 'Notification title is too long');
+    if (content.length > 5000) return error(c, 'Notification content is too long');
+
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(`
+      INSERT INTO notifications (
+        id, title, content, scope_type, scope_id,
+        publisher_id, publisher_name, publisher_role, status,
+        attachment_key, attachment_name, attachment_mime_type,
+        attachment_size, attachment_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
+    `).bind(
+      id,
+      title,
+      content,
+      scopeType,
+      scopeId,
+      actor.id,
+      actor.name || 'Unknown User',
+      actor.role,
+      body.attachment_key == null ? null : String(body.attachment_key),
+      body.attachment_name == null ? null : String(body.attachment_name),
+      body.attachment_mime_type == null ? null : String(body.attachment_mime_type),
+      body.attachment_size == null ? null : Number(body.attachment_size),
+      body.attachment_type == null ? null : String(body.attachment_type)
+    ).run();
+
+    return c.json({ success: true, data: { id, status: 'draft' } }, 201);
+  } catch (e: any) {
+    console.error('NOTIFICATION_CREATE_ERROR:', e);
+    return error(c, 'Unable to create notification', 500);
+  }
+});
+
+// Publish a draft. Publisher role is checked again server-side.
+notificationRouter.post('/:id/publish', async (c) => {
+  const actor = c.get('user');
+  if (!isPublisher(actor.role)) return error(c, 'Only App Admin or Cluster Head can publish notifications', 403);
+
+  const notificationId = c.req.param('id');
+  try {
+    const notification = await c.env.DB.prepare(`
+      SELECT id, status, publisher_role
+      FROM notifications
+      WHERE id = ? AND is_deleted = 0
+      LIMIT 1
+    `).bind(notificationId).first<any>();
+    if (!notification) return error(c, 'Notification not found', 404);
+    if (notification.status === 'published') return error(c, 'Notification is already published', 409);
+    if (notification.status === 'deleted') return error(c, 'Deleted notification cannot be published', 409);
+
+    await c.env.DB.prepare(`
+      UPDATE notifications
+      SET status = 'published', published_at = CURRENT_TIMESTAMP,
+          published_by = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND status = 'draft' AND is_deleted = 0
+    `).bind(actor.id, notificationId).run();
+
+    return c.json({ success: true, data: { id: notificationId, status: 'published', published_by: actor.id } });
+  } catch (e: any) {
+    console.error('NOTIFICATION_PUBLISH_ERROR:', e);
+    return error(c, 'Unable to publish notification', 500);
+  }
+});
+
+// List published notifications for the authenticated user.
+// Fine-grained recipient/scope filtering is deliberately reserved for the scope phase.
 notificationRouter.get('/', async (c) => {
   try {
     const limit = Math.min(Math.max(Number(c.req.query('limit') || 50), 1), 100);
@@ -41,7 +124,6 @@ notificationRouter.get('/', async (c) => {
   }
 });
 
-// Return unread count for the authenticated user.
 notificationRouter.get('/unread-count', async (c) => {
   try {
     const row = await c.env.DB.prepare(`
@@ -61,7 +143,6 @@ notificationRouter.get('/unread-count', async (c) => {
   }
 });
 
-// Mark one notification as read. Idempotent through UNIQUE(notification_id,user_id).
 notificationRouter.post('/:id/read', async (c) => {
   const user = c.get('user');
   const notificationId = c.req.param('id');
@@ -87,8 +168,6 @@ notificationRouter.post('/:id/read', async (c) => {
   }
 });
 
-// Dismiss is represented by a read marker in this phase. A separate per-user
-// dismissal model can be introduced later without changing notification content.
 notificationRouter.post('/:id/dismiss', async (c) => {
   const user = c.get('user');
   const notificationId = c.req.param('id');
