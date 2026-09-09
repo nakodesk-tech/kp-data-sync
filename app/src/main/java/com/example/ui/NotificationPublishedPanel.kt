@@ -78,7 +78,7 @@ fun NotificationPublishedPanel(session: UserSession, onCreate: () -> Unit) {
     Modifier.fillMaxSize().padding(horizontal = 16.dp)
   ) {
     Row(
-      Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 12.dp),
+      Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 10.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       Surface(
@@ -95,16 +95,21 @@ fun NotificationPublishedPanel(session: UserSession, onCreate: () -> Unit) {
         Text("Published Notifications", fontSize = 24.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text("प्रकाशित सूचना", fontWeight = FontWeight.Bold)
       }
-      if (canManage) {
-        Button(
-          onClick = onCreate,
-          shape = RoundedCornerShape(28.dp),
-          contentPadding = PaddingValues(horizontal = 16.dp, vertical = 11.dp)
-        ) {
-          Icon(Icons.Default.Add, null, modifier = Modifier.size(23.dp))
-          Spacer(Modifier.width(5.dp))
-          Text("नवीन सूचना तयार करा", fontWeight = FontWeight.Bold, maxLines = 1)
-        }
+    }
+
+    if (canManage) {
+      Button(
+        onClick = onCreate,
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(bottom = 12.dp),
+        shape = RoundedCornerShape(18.dp),
+        contentPadding = PaddingValues(vertical = 13.dp, horizontal = 18.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+      ) {
+        Icon(Icons.Default.Add, null, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(7.dp))
+        Text("नवीन सूचना तयार करा", fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
       }
     }
 
@@ -224,7 +229,7 @@ private fun PublishedNotificationRow(
           Column(Modifier.weight(1f)) {
             Text(item.title, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
-            Text(item.content, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            Text(item.content, fontSize = 14.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(8.dp))
             Text(
               "${item.publisherName} • ${if (isDraft) item.createdAt ?: "" else item.publishedAt ?: item.createdAt ?: ""}",
@@ -252,7 +257,7 @@ private fun PublishedNotificationRow(
           shape = RoundedCornerShape(15.dp)
         ) { Text(if (busy) "प्रकाशित करत आहे…" else "सूचना प्रकाशित करा", fontWeight = FontWeight.Bold) }
       } else if (canViewAudience) {
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         Row(
           Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -292,15 +297,15 @@ private fun AudienceButton(
   onClick: () -> Unit
 ) {
   Surface(
-    modifier = modifier.heightIn(min = 64.dp),
+    modifier = modifier.heightIn(min = 52.dp),
     onClick = onClick,
-    shape = RoundedCornerShape(18.dp),
+    shape = RoundedCornerShape(16.dp),
     color = containerColor
   ) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-      Icon(icon, null, tint = contentColor, modifier = Modifier.size(28.dp))
-      Spacer(Modifier.width(7.dp))
-      Text(title, color = contentColor, fontSize = 13.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp, modifier = Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+      Icon(icon, null, tint = contentColor, modifier = Modifier.size(23.dp))
+      Spacer(Modifier.width(5.dp))
+      Text(title, color = contentColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp, modifier = Modifier.weight(1f))
     }
   }
 }
