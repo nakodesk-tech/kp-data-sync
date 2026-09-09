@@ -58,10 +58,9 @@ object RealtimeMessageApi {
           override fun contentLength() = size
           override fun writeTo(sink: BufferedSink) { context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) } ?: throw IllegalStateException("फाइल वाचता आली नाही.") }
         }
-        // HTTP header values cannot safely contain arbitrary Unicode. Encode the filename
-        // as ASCII percent-encoded UTF-8 before putting it into the custom header.
-        // The backend decodes it before applying its filename/path sanitization.
-        val encodedFileName = Uri.encode(fileName.take(240))
+        // HTTP headers are ASCII-safe only. The prefix distinguishes this encoding from
+        // legacy plain filenames, so names containing a literal '%' remain unchanged.
+        val encodedFileName = "utf8:${Uri.encode(fileName.take(240))}"
         val request = Request.Builder().url("$BASE_URL/api/messages/$groupId/attachment").header("Authorization", "Bearer $token").header("X-Message-Type", messageType).header("X-File-Name", encodedFileName).post(body).build()
         client.newCall(request).execute().use { response ->
           val raw = response.body?.string().orEmpty(); val json = runCatching { JSONObject(raw) }.getOrElse { JSONObject() }
