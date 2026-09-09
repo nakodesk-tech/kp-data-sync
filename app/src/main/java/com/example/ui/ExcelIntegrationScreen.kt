@@ -98,9 +98,7 @@ fun ExcelIntegrationScreen(session: UserSession, onBack: () -> Unit) {
     if (uri == null) return@rememberLauncherForActivityResult
     selectedFileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Excel file"
     loading = true; resultMessage = null; preview = null
-    androidx.compose.runtime.LaunchedEffect(Unit) { }
-    androidx.compose.ui.platform.LocalContext.current
-    kotlinx.coroutines.CoroutineScope(Dispatchers.Main).launch {
+    CoroutineScope(Dispatchers.Main).launch {
       val result = withContext(Dispatchers.IO) { ExcelFileParser.parse(context.contentResolver, uri) }
       loading = false
       result.onSuccess { parsed ->
