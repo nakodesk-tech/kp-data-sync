@@ -4,11 +4,17 @@ import { Bindings, Variables } from '../types';
 
 export const excelRouter = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 const MAX_EXCEL_BYTES = 50 * 1024 * 1024;
+const REPORT_MIME_TYPES: Record<string, string> = {
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'excel',
+  'application/vnd.ms-excel': 'excel',
+  'text/csv': 'excel',
+  'application/pdf': 'pdf'
+};
 
 function error(c: any, message: string, status = 400) { return c.json({ success: false, error: message }, status); }
 
 async function getFile(db: D1Database, groupId: string, messageId: string) {
-  return db.prepare(`SELECT id, group_id, group_name, sender_id, sender_name, attachment_key, file_name, mime_type, file_size, excel_status, excel_version, excel_published_at, excel_published_by, created_at, updated_at FROM messages WHERE id = ? AND group_id = ? AND message_type IN ('excel', 'pdf') AND is_deleted = 0 LIMIT 1`).bind(messageId, groupId).first<any>();
+  return db.prepare(`SELECT id, group_id, group_name, sender_id, sender_name, content, attachment_key, file_name, mime_type, file_size, excel_status, excel_version, excel_published_at, excel_published_by, created_at, updated_at FROM messages WHERE id = ? AND group_id = ? AND message_type IN ('excel', 'pdf') AND is_deleted = 0 LIMIT 1`).bind(messageId, groupId).first<any>();
 }
 
 async function groupAccess(db: D1Database, actor: any, groupId: string) {
@@ -21,6 +27,45 @@ async function groupAccess(db: D1Database, actor: any, groupId: string) {
 }
 
 excelRouter.use('*', authMiddleware());
+
+// Direct Report Upload: App Admin / Cluster Head can place a ready Report into a selected Group.
+// The file becomes a published Group message immediately and carries a small origin tag in message content.
+excelRouter.post('/reports/upload', async (c) => {
+  const actor = c.get('user');
+  if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can upload Reports', 403);
+  try {
+    const form = await c.req.formData();
+    const groupId = String(form.get('group_id') || '').trim();
+    const uploaded = form.get('file') as File | null;
+    if (!uploaded || typeof uploaded.stream !== 'function') return error(c, 'Report file is required');
+    if (!groupId) return error(c, 'Report group is required');
+    if (uploaded.size <= 0) return error(c, 'Report file is empty');
+    if (uploaded.size > MAX_EXCEL_BYTES) return error(c, 'Report file must be 50 MB or smaller');
+    const mimeType = (uploaded.type || '').split(';')[0].trim().toLowerCase();
+    const messageType = REPORT_MIME_TYPES[mimeType];
+    if (!messageType) return error(c, 'Only Excel, CSV and PDF Reports are supported');
+
+    const access = await groupAccess(c.env.DB, actor, groupId);
+    if (!access.group || !access.allowed) return error(c, 'You do not have access to this group', 403);
+
+    const messageId = crypto.randomUUID();
+    const originalName = uploaded.name?.trim() || (messageType === 'pdf' ? 'report.pdf' : 'report.xlsx');
+    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 240) || (messageType === 'pdf' ? 'report.pdf' : 'report.xlsx');
+    const key = `groups/${groupId}/reports/${messageId}-${safeName}`;
+    await c.env.R2_BUCKET.put(key, uploaded.stream(), {
+      httpMetadata: { contentType: mimeType, contentDisposition: `attachment; filename="${safeName}"` },
+      customMetadata: { groupId, uploadedBy: actor.id, messageId, messageType, report: 'published' }
+    });
+
+    const originTag = `Sent from Reports By ${actor.name || 'Unknown User'}`;
+    await c.env.DB.prepare(`INSERT INTO messages (id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, is_deleted, is_read, excel_status, excel_version, excel_published_at, excel_published_by) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 0, 0, 'published', 1, CURRENT_TIMESTAMP, ?)`).bind(messageId, groupId, access.group.group_name || '', actor.id, actor.name || '', originTag, messageType, key, safeName, mimeType, uploaded.size, actor.id).run();
+
+    return c.json({ success: true, data: { id: messageId, group_id: groupId, group_name: access.group.group_name || '', sender_name: actor.name || '', file_name: safeName, mime_type: mimeType, file_size: uploaded.size, excel_version: 1, excel_status: 'published', excel_published_at: new Date().toISOString(), excel_published_by: actor.id, content: originTag } }, 201);
+  } catch (e: any) {
+    console.error('Report upload failed:', e);
+    return error(c, 'Unable to upload Report', 500);
+  }
+});
 
 // Published files are readable from Reports by authenticated users.
 excelRouter.get('/reports/:messageId/download', async (c) => {
