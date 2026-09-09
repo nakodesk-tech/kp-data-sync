@@ -1,6 +1,5 @@
 package com.example.ui
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -69,11 +68,7 @@ fun ReportsScreen(session: UserSession) {
   val visibleReports = remember(reports, searchQuery, selectedFilter, sortNewestFirst) {
     val filtered = reports.filter { report ->
       val matchesSearch = searchQuery.isBlank() || report.fileName.contains(searchQuery, true) || report.groupName.contains(searchQuery, true) || report.senderName.contains(searchQuery, true)
-      val matchesType = when (selectedFilter) {
-        "Excel" -> !isPdfReport(report)
-        "PDF" -> isPdfReport(report)
-        else -> true
-      }
+      val matchesType = when (selectedFilter) { "Excel" -> !isPdfReport(report); "PDF" -> isPdfReport(report); else -> true }
       matchesSearch && matchesType
     }
     if (sortNewestFirst) filtered.sortedByDescending { it.publishedAt ?: "" } else filtered.sortedBy { it.publishedAt ?: "" }
@@ -98,10 +93,7 @@ fun ReportsScreen(session: UserSession) {
       ReportFilterChip("Excel ($excelCount)", selectedFilter == "Excel") { selectedFilter = "Excel" }
       ReportFilterChip("PDF ($pdfCount)", selectedFilter == "PDF") { selectedFilter = "PDF" }
       Box {
-        OutlinedButton(onClick = { sortExpanded = true }, shape = RoundedCornerShape(18.dp), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) {
-          Text(if (sortNewestFirst) "नवीन प्रथम" else "जुने प्रथम", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-          Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(18.dp))
-        }
+        OutlinedButton(onClick = { sortExpanded = true }, shape = RoundedCornerShape(18.dp), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) { Text(if (sortNewestFirst) "नवीन प्रथम" else "जुने प्रथम", fontSize = 11.sp, fontWeight = FontWeight.SemiBold); Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(18.dp)) }
         DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
           DropdownMenuItem(text = { Text("नवीन प्रथम") }, onClick = { sortNewestFirst = true; sortExpanded = false })
           DropdownMenuItem(text = { Text("जुने प्रथम") }, onClick = { sortNewestFirst = false; sortExpanded = false })
@@ -117,10 +109,7 @@ fun ReportsScreen(session: UserSession) {
       visibleReports.isEmpty() -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) { Text(if (reports.isEmpty()) "सध्या कोणतेही Published Reports उपलब्ध नाहीत." else "दिलेल्या शोधासाठी Report सापडला नाही.", color = Color(0xFF64748B)) }
       else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
         items(visibleReports, key = { it.id }) { report ->
-          ReportCard(
-            report = report,
-            opening = openingId == report.id,
-            canManage = canManage,
+          ReportCard(report, openingId == report.id, canManage, session.token,
             onView = { openingId = report.id; ReportsApi.downloadAndOpen(context, session.token, report) { openingId = null } },
             onDownload = { downloadTarget = report; downloadPicker.launch(report.fileName) },
             onEditSaved = { version -> actionError = "${report.fileName} मध्ये बदल सेव्ह झाले • Version $version"; loadReports() },
@@ -131,12 +120,8 @@ fun ReportsScreen(session: UserSession) {
         item {
           Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color(0xFFEAF2FF)) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-              Icon(Icons.Default.Lock, null, tint = Color(0xFF2563EB), modifier = Modifier.size(22.dp))
-              Spacer(Modifier.width(10.dp))
-              Column {
-                Text("Published files", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
-                Text("Group मध्ये Publish केल्यानंतर सामान्य users या फाइलमध्ये बदल करू शकत नाहीत. App Admin आणि Cluster Head Reports मधून Excel संपादित करू शकतात.", fontSize = 11.sp, color = Color(0xFF526784), lineHeight = 16.sp)
-              }
+              Icon(Icons.Default.Lock, null, tint = Color(0xFF2563EB), modifier = Modifier.size(22.dp)); Spacer(Modifier.width(10.dp))
+              Column { Text("Published files", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB)); Text("Group मध्ये Publish केल्यानंतर सामान्य users या फाइलमध्ये बदल करू शकत नाहीत. App Admin आणि Cluster Head Reports मधून Excel संपादित करू शकतात.", fontSize = 11.sp, color = Color(0xFF526784), lineHeight = 16.sp) }
             }
           }
         }
@@ -150,18 +135,12 @@ fun ReportsScreen(session: UserSession) {
 }
 
 private fun isPdfReport(report: ExcelReport): Boolean = report.mimeType == "application/pdf" || report.fileName.endsWith(".pdf", true)
-
-private fun formatPublishedAt(value: String?): String {
-  if (value.isNullOrBlank()) return "—"
-  val parsed = runCatching { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).parse(value) ?: SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).parse(value) }.getOrNull() ?: return value
-  return SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(Date(parsed.time))
-}
-
+private fun formatPublishedAt(value: String?): String { if (value.isNullOrBlank()) return "—"; val parsed = runCatching { SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).parse(value) ?: SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).parse(value) }.getOrNull() ?: return value; return SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(Date(parsed.time)) }
 private fun roleLabel(role: String): String = when (role) { "Admin" -> "App Admin"; "Cluster_Head" -> "Cluster Head"; else -> role.ifBlank { "—" } }
 
 @Composable private fun ReportFilterChip(label: String, selected: Boolean, onClick: () -> Unit) { Surface(modifier = Modifier.clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), color = if (selected) HighDensityPrimary else Color(0xFFEFF3F9)) { Text(label, modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp), color = if (selected) Color.White else Color(0xFF526784), fontSize = 11.sp, fontWeight = FontWeight.Bold) } }
 
-@Composable private fun ReportCard(report: ExcelReport, opening: Boolean, canManage: Boolean, onView: () -> Unit, onDownload: () -> Unit, onEditSaved: (Int) -> Unit, onEditError: (String) -> Unit, onDelete: (() -> Unit)?) {
+@Composable private fun ReportCard(report: ExcelReport, opening: Boolean, canManage: Boolean, token: String, onView: () -> Unit, onDownload: () -> Unit, onEditSaved: (Int) -> Unit, onEditError: (String) -> Unit, onDelete: (() -> Unit)?) {
   val isPdf = isPdfReport(report)
   val iconColor = if (isPdf) Color(0xFFE53935) else Color(0xFF16A34A)
   val iconBackground = if (isPdf) Color(0xFFFFEDEF) else Color(0xFFE8F7EE)
@@ -170,34 +149,18 @@ private fun roleLabel(role: String): String = when (role) { "Admin" -> "App Admi
       Row(verticalAlignment = Alignment.Top) {
         Surface(Modifier.size(42.dp), RoundedCornerShape(12.dp), color = iconBackground) { Box(contentAlignment = Alignment.Center) { Icon(if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.Description, null, tint = iconColor, modifier = Modifier.size(23.dp)) } }
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-          Text(report.fileName, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, color = HighDensityOnBackground)
-          Spacer(Modifier.height(2.dp))
-          Text(report.groupName, fontSize = 10.sp, color = Color(0xFF526784), maxLines = 1, overflow = TextOverflow.Ellipsis)
-          Spacer(Modifier.height(5.dp))
-          Surface(shape = RoundedCornerShape(8.dp), color = if (isPdf) Color(0xFFEFF3F9) else Color(0xFFE8F7EE)) { Text("Version ${report.version}", modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), fontSize = 8.sp, color = if (isPdf) Color(0xFF526784) else Color(0xFF15803D), fontWeight = FontWeight.Bold) }
-        }
+        Column(Modifier.weight(1f)) { Text(report.fileName, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, color = HighDensityOnBackground); Spacer(Modifier.height(2.dp)); Text(report.groupName, fontSize = 10.sp, color = Color(0xFF526784), maxLines = 1, overflow = TextOverflow.Ellipsis); Spacer(Modifier.height(5.dp)); Surface(shape = RoundedCornerShape(8.dp), color = if (isPdf) Color(0xFFEFF3F9) else Color(0xFFE8F7EE)) { Text("Version ${report.version}", modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), fontSize = 8.sp, color = if (isPdf) Color(0xFF526784) else Color(0xFF15803D), fontWeight = FontWeight.Bold) } }
       }
       Spacer(Modifier.height(7.dp))
       if (opening) Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = HighDensityPrimary); Spacer(Modifier.width(8.dp)); Text("Report उघडत आहे...", fontSize = 10.sp, color = Color(0xFF64748B)) }
-      else {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-          ReportAction(Icons.Default.Visibility, "View", Color(0xFF10B981), onView)
-          ReportAction(Icons.Default.Download, "Download", HighDensityPrimary, onDownload)
-          if (!isPdf && canManage) ReportEditAction(report, reportPublisherToken = null, token = "", enabled = false, onSaved = {}, onError = {})
-          if (onDelete != null) ReportAction(Icons.Default.Delete, "Delete", Color(0xFFE53935), onDelete)
-        }
-        if (!isPdf && canManage) {
-          Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            ReportEditAction(report, token = com.example.data.BackendApi.currentSession().token, enabled = true, onSaved = onEditSaved, onError = onEditError)
-          }
-        }
+      else Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        ReportAction(Icons.Default.Visibility, "View", Color(0xFF10B981), onView)
+        ReportAction(Icons.Default.Download, "Download", HighDensityPrimary, onDownload)
+        if (!isPdf && canManage) ReportEditAction(report, token, true, onEditSaved, onEditError)
+        if (onDelete != null) ReportAction(Icons.Default.Delete, "Delete", Color(0xFFE53935), onDelete)
       }
       Spacer(Modifier.height(7.dp)); HorizontalDivider(color = Color(0xFFE8EDF4), thickness = 1.dp); Spacer(Modifier.height(6.dp))
-      Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text("Published: ${formatPublishedAt(report.publishedAt)}", fontSize = 9.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("पाठविले: ${report.senderName.ifBlank { "—" }} • Published by: ${roleLabel(report.publisherRole)}", fontSize = 9.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
-      }
+      Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { Text("Published: ${formatPublishedAt(report.publishedAt)}", fontSize = 9.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis); Text("पाठविले: ${report.senderName.ifBlank { "—" }} • Published by: ${roleLabel(report.publisherRole)}", fontSize = 9.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
   }
 }
