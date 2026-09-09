@@ -11,7 +11,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
@@ -104,7 +104,7 @@ fun InAppExcelEditorScreen(
     topBar = {
       TopAppBar(
         title = { Column { Text("Excel Edit & Fill", fontSize = 17.sp, fontWeight = FontWeight.Bold); Text("Version $externalVersion", fontSize = 10.sp, color = Color(0xFF64748B)) } },
-        navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") } },
+        navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         actions = { IconButton(enabled = !saving && dirty, onClick = ::saveWorkbook) { Icon(Icons.Default.Save, "Save", tint = if (dirty) Color(0xFF15803D) else Color(0xFF94A3B8)) } }
       )
     }
