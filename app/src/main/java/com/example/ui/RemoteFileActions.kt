@@ -22,10 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.example.data.RealtimeMessageApi
 import com.example.data.ReportsApi
-import com.example.data.ExcelReport
+import com.example.model.ExcelReport
 import com.example.model.GroupMessage
 import java.io.File
 import java.io.FileOutputStream
@@ -81,7 +83,7 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
   var busy by remember(message.id) { mutableStateOf(false) }
   var notice by remember(message.id) { mutableStateOf<String?>(null) }
   var localPublished by remember(message.id) { mutableStateOf(isPublished) }
-  var editingFile by remember(message.id) { mutableStateOf<File?>(null) }
+  var showEditor by remember(message.id) { mutableStateOf(false) }
 
   val downloadUrl = RealtimeMessageApi.attachmentUrl(message.groupId, message.id)
   val downloadPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(message.mimeType ?: "application/octet-stream")) { uri ->
@@ -90,14 +92,19 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
       downloadRemoteToUri(token, downloadUrl, uri, context, { busy = false; notice = "फाइल डाउनलोड झाली." }, { busy = false; notice = it })
     }
   }
-  val editLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-    val file = editingFile ?: return@rememberLauncherForActivityResult
-    busy = true
-    val fileUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    RealtimeMessageApi.saveExcel(context, token, message.groupId, message.id, fileUri,
-      onSuccess = { version, _ -> busy = false; notice = "बदल सेव्ह झाले • Version $version"; file.delete(); editingFile = null },
-      onError = { busy = false; notice = it; file.delete(); editingFile = null }
-    )
+
+  if (showEditor && isExcel && !localPublished) {
+    Dialog(onDismissRequest = { if (!busy) showEditor = false }, properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = !busy, dismissOnClickOutside = false)) {
+      Surface(Modifier.fillMaxSize(), color = Color.White) {
+        InAppExcelEditorScreen(
+          message = message,
+          token = token,
+          canPublish = canPublish,
+          onBack = { if (!busy) showEditor = false },
+          onPublished = { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." }
+        )
+      }
+    }
   }
 
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -118,17 +125,7 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
       FileAction(Icons.Default.Visibility, "View", Color(0xFF10B981)) { if (!busy) { busy = true; downloadRemoteToFile(context, token, downloadUrl, message.attachmentName ?: "file", { file -> busy = false; if (!openLocalFile(context, file, message.mimeType)) notice = "ही फाइल उघडण्यासाठी योग्य app उपलब्ध नाही." }, { busy = false; notice = it }) } }
       FileAction(Icons.Default.Download, "Download", Color(0xFF2563EB)) { if (!busy) downloadPicker.launch(message.attachmentName ?: if (isExcel) "data.xlsx" else "document.pdf") }
-      if (isExcel && !localPublished) FileAction(Icons.Default.Edit, "Edit & Fill Data", Color(0xFF7C3AED)) {
-        if (!busy) {
-          busy = true
-          downloadRemoteToFile(context, token, downloadUrl, message.attachmentName ?: "data.xlsx", { file ->
-            busy = false; editingFile = file
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            val intent = Intent(Intent.ACTION_EDIT).apply { setDataAndType(uri, message.mimeType ?: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
-            try { editLauncher.launch(intent) } catch (_: Exception) { file.delete(); editingFile = null; notice = "Excel edit करण्यासाठी योग्य app उपलब्ध नाही." }
-          }, { busy = false; notice = it })
-        }
-      }
+      if (isExcel && !localPublished) FileAction(Icons.Default.Edit, "Edit & Fill Data", Color(0xFF7C3AED)) { if (!busy) { notice = null; showEditor = true } }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
       if (!localPublished && canPublish) FileAction(Icons.Default.Publish, "Publish", Color(0xFFEA580C)) {
