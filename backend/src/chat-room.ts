@@ -73,14 +73,15 @@ export class ChatRoom {
       if (!object || !input.attachment_key.startsWith(`groups/${session.groupId}/attachments/`)) return ws.send(JSON.stringify({ type: 'error', error: 'Attachment not found or invalid for this group' }));
     }
     const clientMessageId = typeof input.client_message_id === 'string' ? input.client_message_id.trim().slice(0, 100) : null;
+    const columns = 'id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, client_message_id, is_deleted, is_read, created_at, updated_at, excel_status, excel_version, excel_published_at, excel_published_by';
     if (clientMessageId) {
-      const existing = await this.env.DB.prepare('SELECT id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, is_deleted, is_read, created_at, updated_at FROM messages WHERE group_id = ? AND sender_id = ? AND client_message_id = ? LIMIT 1').bind(session.groupId, session.userId, clientMessageId).first<any>();
+      const existing = await this.env.DB.prepare(`SELECT ${columns} FROM messages WHERE group_id = ? AND sender_id = ? AND client_message_id = ? LIMIT 1`).bind(session.groupId, session.userId, clientMessageId).first<any>();
       if (existing) return ws.send(JSON.stringify({ type: 'message', data: existing, duplicate: true }));
     }
     const group = await this.env.DB.prepare('SELECT group_name FROM groups WHERE id = ? LIMIT 1').bind(session.groupId).first<any>();
     const messageId = `msg-${crypto.randomUUID()}`;
     await this.env.DB.prepare('INSERT INTO messages (id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, client_message_id, is_deleted, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)').bind(messageId, session.groupId, group?.group_name || null, session.userId, session.name, content, input.attachment_key || null, messageType, input.attachment_key || null, input.file_name || null, input.mime_type || null, typeof input.file_size === 'number' ? input.file_size : null, linkUrl, clientMessageId).run();
-    const saved = await this.env.DB.prepare('SELECT id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, is_deleted, is_read, created_at, updated_at FROM messages WHERE id = ?').bind(messageId).first<any>();
+    const saved = await this.env.DB.prepare(`SELECT ${columns} FROM messages WHERE id = ?`).bind(messageId).first<any>();
     const payload = JSON.stringify({ type: 'message', data: saved });
     for (const socket of this.state.getWebSockets()) { try { socket.send(payload); } catch {} }
   }
