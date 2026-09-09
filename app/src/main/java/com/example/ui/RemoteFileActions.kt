@@ -100,6 +100,15 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
   }
 
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    message.text?.takeIf { it.startsWith("Sent from Reports By ") }?.let { originTag ->
+      Surface(Modifier.wrapContentWidth(), color = Color(0xFFEAF2FF), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Default.Send, null, tint = Color(0xFF2563EB), modifier = Modifier.size(13.dp))
+          Spacer(Modifier.width(4.dp))
+          Text(originTag, fontSize = 8.sp, color = Color(0xFF1D4ED8), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+      }
+    }
     if (localPublished) Surface(Modifier.fillMaxWidth(), color = Color(0xFFEAF7EE), shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)) {
       Row(Modifier.padding(horizontal = 9.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Lock, null, tint = Color(0xFF15803D), modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("ही फाइल Reports मध्ये प्रकाशित आहे. सामान्य users आता बदल करू शकत नाहीत.", fontSize = 9.sp, color = Color(0xFF166534), fontWeight = FontWeight.SemiBold) }
     }
