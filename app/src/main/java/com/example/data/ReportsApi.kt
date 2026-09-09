@@ -81,6 +81,20 @@ object ReportsApi {
 
   fun reportDownloadUrl(reportId: String): String = "$BASE_URL/api/excel/reports/$reportId/download"
 
+  fun downloadToUri(token: String, report: ExcelReport, context: Context, destination: Uri, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    Thread {
+      try {
+        val request = Request.Builder().url(reportDownloadUrl(report.id)).header("Authorization", "Bearer $token").get().build()
+        client.newCall(request).execute().use { response ->
+          if (!response.isSuccessful) { onError("Report download अयशस्वी (HTTP ${response.code})"); return@use }
+          val body = response.body ?: run { onError("Report file रिकामी आहे."); return@use }
+          context.contentResolver.openOutputStream(destination)?.use { output -> body.byteStream().use { input -> input.copyTo(output) } } ?: run { onError("Report save करता आली नाही."); return@use }
+          onSuccess()
+        }
+      } catch (e: Exception) { onError(e.message?.trim().takeUnless { it.isNullOrBlank() } ?: "Report download failed.") }
+    }.start()
+  }
+
   fun downloadAndOpen(context: Context, token: String, report: ExcelReport, onComplete: (String?) -> Unit) {
     Thread {
       try {
@@ -97,9 +111,7 @@ object ReportsApi {
           val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, report.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK) }
           try { context.startActivity(intent); onComplete(null) } catch (_: Exception) { onComplete("ही Report उघडण्यासाठी योग्य app उपलब्ध नाही.") }
         }
-      } catch (e: Exception) {
-        onComplete(e.message?.trim().takeUnless { it.isNullOrBlank() }?.let { "Network error: $it" } ?: "Report download failed.")
-      }
+      } catch (e: Exception) { onComplete(e.message?.trim().takeUnless { it.isNullOrBlank() }?.let { "Network error: $it" } ?: "Report download failed.") }
     }.start()
   }
 }
