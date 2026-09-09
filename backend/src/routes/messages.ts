@@ -73,12 +73,15 @@ messageRouter.post('/:id/attachment', async (c) => {
   const messageType = (c.req.header('X-Message-Type') || '').trim().toLowerCase();
   const mimeType = (c.req.header('Content-Type') || 'application/octet-stream').split(';')[0].trim().toLowerCase();
 
-  // Android clients percent-encode UTF-8 filenames before putting them in this header,
-  // because raw Unicode is rejected by OkHttp/HTTP header validation. Decode here once,
-  // while remaining backward-compatible with older clients that sent plain ASCII names.
-  const encodedFileName = (c.req.header('X-File-Name') || 'attachment').trim().slice(0, 2048);
-  let fileName = encodedFileName;
-  try { fileName = decodeURIComponent(encodedFileName); } catch (_) { /* legacy/plain header value */ }
+  // New Android clients send "utf8:" + percent-encoded UTF-8 because raw Unicode
+  // is rejected by OkHttp/HTTP header validation. Decode only the explicitly marked
+  // form; legacy clients remain unchanged, including filenames containing '%'.
+  const rawFileName = (c.req.header('X-File-Name') || 'attachment').trim().slice(0, 2048);
+  let fileName = rawFileName;
+  if (rawFileName.startsWith('utf8:')) {
+    const encoded = rawFileName.slice(5);
+    try { fileName = decodeURIComponent(encoded); } catch (_) { return error(c, 'Invalid attachment filename encoding'); }
+  }
   fileName = fileName.trim().slice(0, 240);
 
   const declaredSize = Number(c.req.header('Content-Length') || 0);
