@@ -12,6 +12,20 @@ function isPublisher(role: string) {
   return role === 'Admin' || role === 'Cluster_Head';
 }
 
+function notificationScope(user: Variables['user']) {
+  if (user.role === 'Admin') return { sql: `n.scope_type IN ('system', 'cluster', 'school')`, params: [] as string[] };
+  if (user.role === 'Cluster_Head') {
+    return {
+      sql: `(n.scope_type = 'system' OR (n.scope_type = 'cluster' AND n.scope_id = ?))`,
+      params: [user.cluster_code || '']
+    };
+  }
+  return {
+    sql: `(n.scope_type = 'system' OR (n.scope_type = 'school' AND n.scope_id = ?))`,
+    params: [user.school_code || '']
+  };
+}
+
 notificationRouter.use('*', authMiddleware());
 
 notificationRouter.post('/', async (c) => {
@@ -26,6 +40,8 @@ notificationRouter.post('/', async (c) => {
     if (!title) return error(c, 'Notification title is required');
     if (!content) return error(c, 'Notification content is required');
     if (!scopeType) return error(c, 'Notification scope_type is required');
+    if (!['system', 'cluster', 'school'].includes(scopeType)) return error(c, 'Invalid notification scope_type');
+    if (scopeType !== 'system' && !scopeId) return error(c, 'Notification scope_id is required for cluster or school scope');
     if (title.length > 200) return error(c, 'Notification title is too long');
     if (content.length > 5000) return error(c, 'Notification content is too long');
 
@@ -77,10 +93,11 @@ notificationRouter.post('/:id/publish', async (c) => {
   }
 });
 
-// Scope filtering will be added in the dedicated scope phase.
 notificationRouter.get('/', async (c) => {
   try {
     const limit = Math.min(Math.max(Number(c.req.query('limit') || 50), 1), 100);
+    const user = c.get('user');
+    const scope = notificationScope(user);
     const result = await c.env.DB.prepare(`
       SELECT n.id, n.title, n.content, n.scope_type, n.scope_id,
         n.publisher_id, n.publisher_name, n.publisher_role, n.status,
@@ -92,10 +109,10 @@ notificationRouter.get('/', async (c) => {
       FROM notifications n
       LEFT JOIN notification_reads nr
         ON nr.notification_id = n.id AND nr.user_id = ?
-      WHERE n.status = 'published' AND n.is_deleted = 0
+      WHERE n.status = 'published' AND n.is_deleted = 0 AND ${scope.sql}
       ORDER BY COALESCE(n.published_at, n.created_at) DESC
       LIMIT ?
-    `).bind(c.get('user').id, limit).all();
+    `).bind(user.id, ...scope.params, limit).all();
     return c.json({ success: true, data: result.results || [] });
   } catch (e: any) {
     console.error('NOTIFICATION_LIST_ERROR:', e);
@@ -105,12 +122,14 @@ notificationRouter.get('/', async (c) => {
 
 notificationRouter.get('/unread-count', async (c) => {
   try {
+    const user = c.get('user');
+    const scope = notificationScope(user);
     const row = await c.env.DB.prepare(`
       SELECT COUNT(*) AS count
       FROM notifications n
       LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
-      WHERE n.status = 'published' AND n.is_deleted = 0 AND nr.id IS NULL
-    `).bind(c.get('user').id).first<{ count: number }>();
+      WHERE n.status = 'published' AND n.is_deleted = 0 AND nr.id IS NULL AND ${scope.sql}
+    `).bind(user.id, ...scope.params).first<{ count: number }>();
     return c.json({ success: true, data: { count: Number(row?.count || 0) } });
   } catch (e: any) {
     console.error('NOTIFICATION_UNREAD_COUNT_ERROR:', e);
@@ -122,9 +141,11 @@ notificationRouter.post('/:id/read', async (c) => {
   const user = c.get('user');
   const notificationId = c.req.param('id');
   try {
+    const scope = notificationScope(user);
     const notification = await c.env.DB.prepare(`
-      SELECT id FROM notifications WHERE id = ? AND status = 'published' AND is_deleted = 0 LIMIT 1
-    `).bind(notificationId).first<{ id: string }>();
+      SELECT n.id FROM notifications n
+      WHERE n.id = ? AND n.status = 'published' AND n.is_deleted = 0 AND ${scope.sql} LIMIT 1
+    `).bind(notificationId, ...scope.params).first<{ id: string }>();
     if (!notification) return error(c, 'Notification not found', 404);
     await c.env.DB.prepare(`
       INSERT INTO notification_reads (id, notification_id, user_id, read_at)
@@ -142,9 +163,11 @@ notificationRouter.post('/:id/dismiss', async (c) => {
   const user = c.get('user');
   const notificationId = c.req.param('id');
   try {
+    const scope = notificationScope(user);
     const notification = await c.env.DB.prepare(`
-      SELECT id FROM notifications WHERE id = ? AND status = 'published' AND is_deleted = 0 LIMIT 1
-    `).bind(notificationId).first<{ id: string }>();
+      SELECT n.id FROM notifications n
+      WHERE n.id = ? AND n.status = 'published' AND n.is_deleted = 0 AND ${scope.sql} LIMIT 1
+    `).bind(notificationId, ...scope.params).first<{ id: string }>();
     if (!notification) return error(c, 'Notification not found', 404);
     await c.env.DB.prepare(`
       INSERT INTO notification_reads (id, notification_id, user_id, read_at)
