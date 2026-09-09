@@ -317,7 +317,7 @@ private fun ChatsContent(session: UserSession, onOpenSchools: () -> Unit, onOpen
 }
 
 @Composable
-private fun GroupStatusTab(title: String, count: Int, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun RowScope.GroupStatusTab(title: String, count: Int, selected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
   Surface(
     modifier = Modifier.weight(1f).clickable(onClick = onClick),
     shape = RoundedCornerShape(11.dp),
