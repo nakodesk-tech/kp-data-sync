@@ -82,7 +82,13 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
 
   fun uploadSelected(uri: Uri) {
     val mime = context.contentResolver.getType(uri)?.substringBefore(';')?.lowercase().orEmpty()
-    val messageType = when { mime.startsWith("image/") -> "image"; mime == "application/pdf" -> "pdf"; mime == "text/csv" || mime == "application/vnd.ms-excel" || mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "excel"; mime.startsWith("audio/") -> "audio"; else -> "" }
+    val messageType = when {
+      mime.startsWith("image/") -> "image"
+      mime == "application/pdf" -> "pdf"
+      mime == "text/csv" || mime == "application/vnd.ms-excel" || mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> "excel"
+      mime.startsWith("audio/") -> "audio"
+      else -> ""
+    }
     if (messageType.isBlank()) { uploadError = "या फाइल प्रकाराचे समर्थन उपलब्ध नाही."; return }
     val name = queryDisplayName(context, uri) ?: "attachment"
     uploading = true; uploadError = null
@@ -147,7 +153,30 @@ fun GroupChatScreen(group: ChatGroup, session: UserSession, onBack: () -> Unit) 
 }
 
 @Composable private fun LinkCard(message: GroupMessage, context: Context) { TextButton(onClick = { val value = message.linkUrl.orEmpty(); if (value.startsWith("http://") || value.startsWith("https://")) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))) }, contentPadding = PaddingValues(0.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Link, null, tint = HighDensityPrimary, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text(message.linkUrl.orEmpty(), color = HighDensityPrimary, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) } } }
-@Composable private fun AttachmentCard(message: GroupMessage, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, context: Context, token: String) { TextButton(onClick = { downloadAndOpen(context, token, message) }, contentPadding = PaddingValues(0.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = HighDensityPrimary, modifier = Modifier.size(24.dp)); Spacer(Modifier.width(8.dp)); Column { Text(label, fontWeight = FontWeight.Bold, color = HighDensityOnBackground); Text(message.attachmentName ?: label, fontSize = 10.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis) } } } }
+
+@Composable private fun AttachmentCard(message: GroupMessage, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, context: Context, token: String) {
+  var deleted by remember(message.id) { mutableStateOf(false) }
+  if (message.messageType == "excel" || message.messageType == "pdf") {
+    if (deleted) {
+      Text("हा संदेश हटविला आहे.", color = Color(0xFF94A3B8), fontSize = 13.sp)
+    } else {
+      Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(icon, null, tint = HighDensityPrimary, modifier = Modifier.size(24.dp))
+          Spacer(Modifier.width(8.dp))
+          Column(Modifier.weight(1f)) {
+            Text(label, fontWeight = FontWeight.Bold, color = HighDensityOnBackground)
+            Text(message.attachmentName ?: label, fontSize = 10.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (message.messageType == "excel") Text("Version ${message.excelVersion}", fontSize = 8.sp, color = Color(0xFF64748B))
+          }
+        }
+        GroupFileActions(message, token, canPublish = com.example.data.BackendApi.currentSession().role == UserRole.Admin || com.example.data.BackendApi.currentSession().role == UserRole.Cluster_Head, onDeleted = { deleted = true })
+      }
+    }
+  } else {
+    TextButton(onClick = { downloadAndOpen(context, token, message) }, contentPadding = PaddingValues(0.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = HighDensityPrimary, modifier = Modifier.size(24.dp)); Spacer(Modifier.width(8.dp)); Column { Text(label, fontWeight = FontWeight.Bold, color = HighDensityOnBackground); Text(message.attachmentName ?: label, fontSize = 10.sp, color = Color(0xFF64748B), maxLines = 1, overflow = TextOverflow.Ellipsis) } } }
+  }
+}
 
 private fun renderPdfFirstPage(file: File): android.graphics.Bitmap? = runCatching { ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor -> PdfRenderer(descriptor).use { renderer -> if (renderer.pageCount == 0) null else renderer.openPage(0).use { page -> val width = 900; val height = (width.toFloat() * page.height / page.width).toInt().coerceAtLeast(1); android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888).also { bitmap -> page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) } } } } }.getOrNull()
 
