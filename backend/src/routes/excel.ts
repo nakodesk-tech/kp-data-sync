@@ -4,12 +4,6 @@ import { Bindings, Variables } from '../types';
 
 export const excelRouter = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 const MAX_EXCEL_BYTES = 50 * 1024 * 1024;
-const REPORT_MIME_TYPES: Record<string, string> = {
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'excel',
-  'application/vnd.ms-excel': 'excel',
-  'text/csv': 'excel',
-  'application/pdf': 'pdf'
-};
 
 function error(c: any, message: string, status = 400) { return c.json({ success: false, error: message }, status); }
 
@@ -28,43 +22,7 @@ async function groupAccess(db: D1Database, actor: any, groupId: string) {
 
 excelRouter.use('*', authMiddleware());
 
-excelRouter.post('/reports/upload', async (c) => {
-  const actor = c.get('user');
-  if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can upload Reports', 403);
-  try {
-    const form = await c.req.formData();
-    const groupId = String(form.get('group_id') || '').trim();
-    const uploaded = form.get('file') as File | null;
-    if (!uploaded || typeof uploaded.stream !== 'function') return error(c, 'Report file is required');
-    if (!groupId) return error(c, 'Report group is required');
-    if (uploaded.size <= 0) return error(c, 'Report file is empty');
-    if (uploaded.size > MAX_EXCEL_BYTES) return error(c, 'Report file must be 50 MB or smaller');
-    const mimeType = (uploaded.type || '').split(';')[0].trim().toLowerCase();
-    const messageType = REPORT_MIME_TYPES[mimeType];
-    if (!messageType) return error(c, 'Only Excel, CSV and PDF Reports are supported');
-
-    const access = await groupAccess(c.env.DB, actor, groupId);
-    if (!access.group || !access.allowed) return error(c, 'You do not have access to this group', 403);
-
-    const messageId = crypto.randomUUID();
-    const originalName = uploaded.name?.trim() || (messageType === 'pdf' ? 'report.pdf' : 'report.xlsx');
-    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 240) || (messageType === 'pdf' ? 'report.pdf' : 'report.xlsx');
-    const key = `groups/${groupId}/reports/${messageId}-${safeName}`;
-    await c.env.R2_BUCKET.put(key, uploaded.stream(), {
-      httpMetadata: { contentType: mimeType, contentDisposition: `attachment; filename="${safeName}"` },
-      customMetadata: { groupId, uploadedBy: actor.id, messageId, messageType, report: 'published' }
-    });
-
-    await c.env.DB.prepare(`INSERT INTO messages (id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, is_deleted, is_read, excel_status, excel_version, excel_published_at, excel_published_by) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 0, 0, 'published', 1, CURRENT_TIMESTAMP, ?)`).bind(messageId, groupId, access.group.group_name || '', actor.id, actor.name || '', safeName, messageType, key, safeName, mimeType, uploaded.size, actor.id).run();
-
-    return c.json({ success: true, data: { id: messageId, group_id: groupId, group_name: access.group.group_name || '', sender_name: actor.name || '', publisher_role: actor.role || '', file_name: safeName, mime_type: mimeType, file_size: uploaded.size, excel_version: 1, excel_status: 'published', excel_published_at: new Date().toISOString(), excel_published_by: actor.id } }, 201);
-  } catch (e: any) {
-    console.error('Report upload failed:', e);
-    return error(c, 'Unable to upload Report', 500);
-  }
-});
-
-// Published Reports are globally readable to authenticated users, independent of group membership.
+// Published files are readable from Reports by authenticated users.
 excelRouter.get('/reports/:messageId/download', async (c) => {
   const messageId = c.req.param('messageId');
   const file = await c.env.DB.prepare(`SELECT attachment_key, file_name, mime_type FROM messages WHERE id = ? AND message_type IN ('excel', 'pdf') AND excel_status = 'published' AND is_deleted = 0 LIMIT 1`).bind(messageId).first<any>();
@@ -79,6 +37,8 @@ excelRouter.get('/reports/:messageId/download', async (c) => {
   return new Response(object.body, { status: 200, headers });
 });
 
+// Save a shared Excel workbook back to the same R2 object. Before publish,
+// group members may edit it. After publish, only App Admin / Cluster Head may edit.
 excelRouter.put('/:groupId/:messageId', async (c) => {
   const actor = c.get('user');
   const groupId = c.req.param('groupId');
@@ -86,17 +46,17 @@ excelRouter.put('/:groupId/:messageId', async (c) => {
   const access = await groupAccess(c.env.DB, actor, groupId);
   if (!access.group || !access.allowed) return error(c, 'You do not have access to this group', 403);
   const file = await getFile(c.env.DB, groupId, messageId);
-  if (!file?.attachment_key) return error(c, 'Excel file not found', 404);
+  if (!file?.attachment_key) return error(c, 'Shared file not found', 404);
   const isPublished = file.excel_status === 'published';
-  if (isPublished && actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'This Excel is published and can only be edited by App Admin or Cluster Head', 403);
-  if (!c.req.raw.body) return error(c, 'Workbook body is empty');
+  if (isPublished && actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'This file is published and can only be edited by App Admin or Cluster Head', 403);
+  if (!c.req.raw.body) return error(c, 'File body is empty');
   const contentLength = Number(c.req.header('Content-Length') || 0);
-  if (contentLength > MAX_EXCEL_BYTES) return error(c, 'Excel file must be 50 MB or smaller');
+  if (contentLength > MAX_EXCEL_BYTES) return error(c, 'File must be 50 MB or smaller');
   const mimeType = (c.req.header('Content-Type') || file.mime_type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').split(';')[0].trim();
   const fileName = file.file_name || 'data.xlsx';
   await c.env.R2_BUCKET.put(file.attachment_key, c.req.raw.body, {
     httpMetadata: { contentType: mimeType, contentDisposition: `attachment; filename="${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}"` },
-    customMetadata: { groupId, updatedBy: actor.id, messageId, messageType: 'excel' }
+    customMetadata: { groupId, updatedBy: actor.id, messageId, messageType: file.mime_type === 'application/pdf' ? 'pdf' : 'excel' }
   });
   const object = await c.env.R2_BUCKET.head(file.attachment_key);
   const nextVersion = Number(file.excel_version || 1) + 1;
@@ -104,15 +64,16 @@ excelRouter.put('/:groupId/:messageId', async (c) => {
   return c.json({ success: true, data: { version: nextVersion, file_size: object?.size || contentLength || null, status: file.excel_status } });
 });
 
+// Only App Admin and Cluster Head can publish a file from the Group Chat into Reports.
 excelRouter.post('/:groupId/:messageId/publish', async (c) => {
   const actor = c.get('user');
-  if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can send Excel to Reports', 403);
+  if (actor.role !== 'Admin' && actor.role !== 'Cluster_Head') return error(c, 'Only App Admin or Cluster Head can publish files to Reports', 403);
   const groupId = c.req.param('groupId');
   const messageId = c.req.param('messageId');
   const access = await groupAccess(c.env.DB, actor, groupId);
   if (!access.group || !access.allowed) return error(c, 'You do not have access to this group', 403);
   const file = await getFile(c.env.DB, groupId, messageId);
-  if (!file?.attachment_key) return error(c, 'Excel file not found', 404);
+  if (!file?.attachment_key) return error(c, 'Shared file not found', 404);
   await c.env.DB.prepare(`UPDATE messages SET excel_status = 'published', excel_published_at = CURRENT_TIMESTAMP, excel_published_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND group_id = ?`).bind(actor.id, messageId, groupId).run();
   return c.json({ success: true, data: { status: 'published', published_at: new Date().toISOString(), published_by: actor.id } });
 });
@@ -142,6 +103,6 @@ excelRouter.get('/:groupId/:messageId/status', async (c) => {
   const access = await groupAccess(c.env.DB, actor, groupId);
   if (!access.group || !access.allowed) return error(c, 'You do not have access to this group', 403);
   const file = await getFile(c.env.DB, groupId, messageId);
-  if (!file) return error(c, 'Excel file not found', 404);
+  if (!file) return error(c, 'Shared file not found', 404);
   return c.json({ success: true, data: { status: file.excel_status, version: Number(file.excel_version || 1), published_at: file.excel_published_at, published_by: file.excel_published_by } });
 });
