@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -154,11 +155,18 @@ internal class InAppXlsxWorkbook private constructor(
     }
 
     private fun parseXmlStatic(bytes: ByteArray): Document {
+      // Android's XML implementation does not consistently support the Xerces
+      // disallow-doctype feature used on desktop JVMs. Reject a DOCTYPE ourselves
+      // and apply the portable entity/XInclude protections where supported.
+      val xmlHeader = String(bytes, Charsets.UTF_8).lowercase(Locale.ROOT)
+      require("<!doctype" !in xmlHeader) { "DOCTYPE declarations are not allowed in Excel XML" }
+
       val f = DocumentBuilderFactory.newInstance().apply {
-        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-        setFeature("http://xml.org/sax/features/external-general-entities", false)
-        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-        isXIncludeAware = false; isExpandEntityReferences = false
+        try { setFeature("http://xml.org/sax/features/external-general-entities", false) } catch (_: Exception) { }
+        try { setFeature("http://xml.org/sax/features/external-parameter-entities", false) } catch (_: Exception) { }
+        try { setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) } catch (_: Exception) { }
+        try { isXIncludeAware = false } catch (_: Exception) { }
+        try { isExpandEntityReferences = false } catch (_: Exception) { }
       }
       return f.newDocumentBuilder().parse(ByteArrayInputStream(bytes))
     }
