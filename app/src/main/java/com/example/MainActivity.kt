@@ -1,9 +1,11 @@
 package com.example
 
+import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -45,30 +47,19 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     removeSecureFlag()
-    // Permanently configure edge-to-edge system bars while ensuring the root app
-    // permanently guards status bars, cutouts, navigation bars, and keyboard insets.
-    enableEdgeToEdge()
-    keepSystemBarsVisible()
     val restoredSession = SessionStore.load(this)
+    enableEdgeToEdge(
+      statusBarStyle = SystemBarStyle.auto(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
+      navigationBarStyle = SystemBarStyle.auto(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+    )
     setContent {
       MyApplicationTheme {
-        Surface(
-          modifier = Modifier.fillMaxSize(),
-          color = HighDensityBackground
-        ) {
-          // Permanent edge-to-edge safe drawing container for every current and future screen.
-          // This guarantees that status bars, display cutouts (camera notches), navigation
-          // bars, and keyboard (IME) insets are permanently handled in the device's accessible window.
-          Box(
-            modifier = Modifier
-              .fillMaxSize()
-              .safeDrawingPadding()
-          ) {
-            MainApp(initialSession = restoredSession, onExitApp = { finishAndRemoveTask() })
-          }
+        Surface(Modifier.fillMaxSize(), color = HighDensityBackground) {
+          MainApp(initialSession = restoredSession, onExitApp = { finishAndRemoveTask() })
         }
       }
     }
+    keepSystemBarsVisible()
     window.decorView.post { removeSecureFlag(); keepSystemBarsVisible() }
   }
 
