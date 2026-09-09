@@ -90,27 +90,14 @@ fun DashboardScreen(
   }
 
   if (showNotificationPanel) {
-    Scaffold(
-      modifier = Modifier.fillMaxSize(),
-      containerColor = HighDensityBackground,
-      topBar = {
-        TopAppBar(
-          title = { Text("सूचना", fontWeight = FontWeight.Bold) },
-          navigationIcon = {
-            IconButton(onClick = { showNotificationPanel = false; refreshNotificationCount() }) {
-              Icon(Icons.Default.ArrowBack, "मागे")
-            }
-          }
-        )
-      }
-    ) { padding ->
-      Box(Modifier.fillMaxSize().padding(padding)) {
-        NotificationPublishedPanel(
-          session = session,
-          onCreate = { showNotificationCreate = true }
-        )
-      }
-    }
+    NotificationScreen(
+      session = session,
+      onBack = {
+        showNotificationPanel = false
+        refreshNotificationCount()
+      },
+      onCreate = { showNotificationCreate = true }
+    )
     return
   }
 

@@ -19,6 +19,7 @@ import com.example.ui.theme.HighDensityBackground
 import com.example.ui.theme.HighDensityOnBackground
 import com.example.ui.theme.HighDensityPrimary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationCreateScreen(session: UserSession, onBack: () -> Unit, onPublished: () -> Unit) {
   var title by remember { mutableStateOf("") }
