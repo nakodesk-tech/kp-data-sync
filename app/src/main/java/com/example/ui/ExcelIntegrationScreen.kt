@@ -41,6 +41,7 @@ private data class ImportPreview(val rows: List<ImportRow>, val issues: List<Imp
 @Composable
 fun ExcelIntegrationScreen(session: UserSession, onBack: () -> Unit) {
   val context = LocalContext.current
+  val scope = rememberCoroutineScope()
   var mode by remember { mutableStateOf(ExcelImportMode.Schools) }
   var preview by remember { mutableStateOf<ImportPreview?>(null) }
   var selectedFileName by remember { mutableStateOf<String?>(null) }
@@ -98,7 +99,7 @@ fun ExcelIntegrationScreen(session: UserSession, onBack: () -> Unit) {
     if (uri == null) return@rememberLauncherForActivityResult
     selectedFileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Excel file"
     loading = true; resultMessage = null; preview = null
-    CoroutineScope(Dispatchers.Main).launch {
+    scope.launch {
       val result = withContext(Dispatchers.IO) { ExcelFileParser.parse(context.contentResolver, uri) }
       loading = false
       result.onSuccess { parsed ->
