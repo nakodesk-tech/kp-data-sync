@@ -20,10 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextDecoration
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -41,7 +41,7 @@ private val excelEditorClient=OkHttpClient.Builder().connectTimeout(15,TimeUnit.
 private val excelEditorMain=Handler(Looper.getMainLooper())
 private fun downloadExcelForEditor(context:Context,token:String,message:GroupMessage,onSuccess:(File)->Unit,onError:(String)->Unit){Thread{try{val req=Request.Builder().url(RealtimeMessageApi.attachmentUrl(message.groupId,message.id)).header("Authorization","Bearer $token").get().build();excelEditorClient.newCall(req).execute().use{r->if(!r.isSuccessful){excelEditorMain.post{onError("Excel download अयशस्वी (HTTP ${r.code})")};return@use};val f=File.createTempFile("kp_excel_",".xlsx",context.cacheDir);r.body?.byteStream()?.use{i->FileOutputStream(f).use{o->i.copyTo(o)}}?:run{f.delete();excelEditorMain.post{onError("Excel file रिकामी आहे.")};return@use};excelEditorMain.post{onSuccess(f)}}}catch(e:Exception){excelEditorMain.post{onError(e.message?.trim().takeUnless{it.isNullOrBlank()}?:"Excel उघडता आली नाही.")}}}.start()}
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun InAppExcelEditorScreen(message:GroupMessage,token:String,canPublish:Boolean,onBack:()->Unit,onPublished:()->Unit){
   val context=androidx.compose.ui.platform.LocalContext.current
@@ -104,7 +104,7 @@ fun InAppExcelEditorScreen(message:GroupMessage,token:String,canPublish:Boolean,
     if(w.sheets.size>1)Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(6.dp),horizontalArrangement=Arrangement.spacedBy(5.dp)){w.sheets.forEachIndexed{i,s->FilterChip(selected=sheetIndex==i,onClick={sheetIndex=i;selectedRow=0;selectedCol=0;anchorRow=0;anchorCol=0;touch()},label={Text(s.name,fontSize=10.sp)})}}
     Row(Modifier.fillMaxWidth().horizontalScroll(horizontal)){Column{
       Row{Box(Modifier.width(42.dp).height(34.dp).background(Color(0xFFE2E8F0)),contentAlignment=Alignment.Center){Text("#",fontWeight=FontWeight.Bold,fontSize=10.sp)};repeat(width){c->Box(Modifier.width(140.dp).height(34.dp).background(Color(0xFFE2E8F0)),contentAlignment=Alignment.Center){Text(columnName(c+1),fontWeight=FontWeight.Bold,fontSize=10.sp)}}}
-      LazyColumn(Modifier.fillMaxSize()){itemsIndexed(sheet.cells){r,row->Row{Box(Modifier.width(42.dp).height(48.dp).background(Color(0xFFF1F5F9)),contentAlignment=Alignment.Center){Text((r+1).toString(),fontSize=9.sp)};repeat(width){c->val value=row.getOrElse(c){""};val formula=sheet.formulas.getOrNull(r)?.getOrNull(c);val st=sheet.styles.getOrNull(r)?.getOrNull(c)?:ExcelCellStyle();var text by remember(sheet.name,r,c,value,revision){mutableStateOf(value)};val selected=r in q[0]..q[1]&&c in q[2]..q[3];val bg=st.background?.let{runCatching{Color(AndroidColor.parseColor("#$it"))}.getOrNull()}?:Color.White;OutlinedTextField(value=text,onValueChange={if(text==value)checkpoint();text=it;setValue(r,c,it)},modifier=Modifier.width(140.dp).height(48.dp).combinedClickable(onClick={select(r,c)},onLongClick={select(r,c,true)}).background(if(selected)Color(0xFFE6FFFA)else bg),singleLine=!st.wrap,textStyle=LocalTextStyle.current.copy(fontSize=st.fontSize.sp,fontWeight=if(st.bold)FontWeight.Bold else FontWeight.Normal,fontStyle=if(st.italic)FontStyle.Italic else FontStyle.Normal,textDecoration=if(st.underline)TextDecoration.Underline else TextDecoration.None,textAlign=when(st.horizontal){"center"->TextAlign.Center;"right"->TextAlign.End;else->TextAlign.Start}),colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=bg,focusedContainerColor=bg,unfocusedBorderColor=if(selected)Color(0xFF0F766E)Color(0xFFE2E8F0),focusedBorderColor=Color(0xFF0F766E)),shape=RoundedCornerShape(0.dp))}}}}
+      LazyColumn(Modifier.fillMaxSize()){itemsIndexed(sheet.cells){r,row->Row{Box(Modifier.width(42.dp).height(48.dp).background(Color(0xFFF1F5F9)),contentAlignment=Alignment.Center){Text((r+1).toString(),fontSize=9.sp)};repeat(width){c->val value=row.getOrElse(c){""};val formula=sheet.formulas.getOrNull(r)?.getOrNull(c);val st=sheet.styles.getOrNull(r)?.getOrNull(c)?:ExcelCellStyle();var text by remember(sheet.name,r,c,value,revision){mutableStateOf(value)};val selected=r in q[0]..q[1]&&c in q[2]..q[3];val bg=st.background?.let{runCatching{Color(AndroidColor.parseColor("#$it"))}.getOrNull()}?:Color.White;OutlinedTextField(value=text,onValueChange={if(text==value)checkpoint();text=it;setValue(r,c,it)},modifier=Modifier.width(140.dp).height(48.dp).combinedClickable(onClick={select(r,c)},onLongClick={select(r,c,true)}).background(if(selected)Color(0xFFE6FFFA)else bg),singleLine=!st.wrap,textStyle=LocalTextStyle.current.copy(fontSize=st.fontSize.sp,fontWeight=if(st.bold)FontWeight.Bold else FontWeight.Normal,fontStyle=if(st.italic)FontStyle.Italic else FontStyle.Normal,textDecoration=if(st.underline)TextDecoration.Underline else TextDecoration.None,textAlign=when(st.horizontal){"center"->TextAlign.Center;"right"->TextAlign.End;else->TextAlign.Start}),colors=OutlinedTextFieldDefaults.colors(unfocusedContainerColor=bg,focusedContainerColor=bg,unfocusedBorderColor=if(selected)Color(0xFF0F766E) else Color(0xFFE2E8F0),focusedBorderColor=Color(0xFF0F766E)),shape=RoundedCornerShape(0.dp))}}}}
     }}
   }}
 
