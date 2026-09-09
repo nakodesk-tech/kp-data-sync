@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BackendApi
 import com.example.data.GroupMemberManagementApi
+import com.example.data.NotificationApi
 import com.example.data.SyncRepository
 import com.example.model.*
 import com.example.ui.theme.HighDensityBackground
@@ -43,11 +44,25 @@ fun DashboardScreen(
   var currentTab by remember { mutableStateOf(DashboardTab.Chats) }
   var activeChatGroup by remember { mutableStateOf<ChatGroup?>(null) }
   var showExitConfirmation by remember { mutableStateOf(false) }
-  var showNotificationInfo by remember { mutableStateOf(false) }
+  var showNotificationPanel by remember { mutableStateOf(false) }
+  var showNotificationCreate by remember { mutableStateOf(false) }
+  var unreadNotificationCount by remember { mutableStateOf(0) }
+
+  fun refreshNotificationCount() {
+    NotificationApi.unreadCount(
+      session,
+      onSuccess = { unreadNotificationCount = it.coerceAtLeast(0) },
+      onError = { }
+    )
+  }
+
+  LaunchedEffect(session.token) { refreshNotificationCount() }
 
   BackHandler {
     when {
       activeChatGroup != null -> activeChatGroup = null
+      showNotificationCreate -> showNotificationCreate = false
+      showNotificationPanel -> { showNotificationPanel = false; refreshNotificationCount() }
       currentTab != DashboardTab.Chats -> currentTab = DashboardTab.Chats
       else -> showExitConfirmation = true
     }
@@ -59,6 +74,43 @@ fun DashboardScreen(
       session = session,
       onBack = { activeChatGroup = null }
     )
+    return
+  }
+
+  if (showNotificationCreate) {
+    NotificationCreateScreen(
+      session = session,
+      onBack = { showNotificationCreate = false },
+      onPublished = {
+        showNotificationCreate = false
+        refreshNotificationCount()
+      }
+    )
+    return
+  }
+
+  if (showNotificationPanel) {
+    Scaffold(
+      modifier = Modifier.fillMaxSize(),
+      containerColor = HighDensityBackground,
+      topBar = {
+        TopAppBar(
+          title = { Text("सूचना", fontWeight = FontWeight.Bold) },
+          navigationIcon = {
+            IconButton(onClick = { showNotificationPanel = false; refreshNotificationCount() }) {
+              Icon(Icons.Default.ArrowBack, "मागे")
+            }
+          }
+        )
+      }
+    ) { padding ->
+      Box(Modifier.fillMaxSize().padding(padding)) {
+        NotificationPublishedPanel(
+          session = session,
+          onCreate = { showNotificationCreate = true }
+        )
+      }
+    }
     return
   }
 
@@ -81,9 +133,13 @@ fun DashboardScreen(
               }
             }
           }
-          IconButton(onClick = { showNotificationInfo = true }) {
-            BadgedBox(badge = { Badge(containerColor = HighDensityPrimary) { Text("3", fontSize = 9.sp) } }) {
-              Icon(Icons.Default.Notifications, "Notifications", tint = Color(0xFF49454F))
+          IconButton(onClick = { showNotificationPanel = true; refreshNotificationCount() }) {
+            if (unreadNotificationCount > 0) {
+              BadgedBox(badge = { Badge(containerColor = HighDensityPrimary) { Text(if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString(), fontSize = 9.sp) } }) {
+                Icon(Icons.Default.Notifications, "Notifications", tint = Color(0xFF49454F))
+              }
+            } else {
+              Icon(Icons.Default.NotificationsNone, "Notifications", tint = Color(0xFF49454F))
             }
           }
         }
@@ -117,13 +173,6 @@ fun DashboardScreen(
       }
     }
   }
-
-  if (showNotificationInfo) AlertDialog(
-    onDismissRequest = { showNotificationInfo = false },
-    title = { Text("सूचना") },
-    text = { Text("सध्या कोणतीही नवीन सूचना नाही.") },
-    confirmButton = { TextButton(onClick = { showNotificationInfo = false }) { Text("ठीक आहे") } }
-  )
 
   if (showExitConfirmation) AlertDialog(
     onDismissRequest = { showExitConfirmation = false },
