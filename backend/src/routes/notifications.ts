@@ -16,8 +16,8 @@ function notificationScope(user: Variables['user']) {
   if (user.role === 'Admin') return { sql: `n.scope_type IN ('system', 'cluster', 'school')`, params: [] as string[] };
   if (user.role === 'Cluster_Head') {
     return {
-      sql: `(n.scope_type = 'system' OR (n.scope_type = 'cluster' AND n.scope_id = ?))`,
-      params: [user.cluster_code || '']
+      sql: `(n.scope_type = 'system' OR (n.scope_type = 'cluster' AND n.scope_id = ?) OR (n.scope_type = 'school' AND EXISTS (SELECT 1 FROM schools ns WHERE ns.udise_code = n.scope_id AND ns.cluster_code = ? AND ns.is_active = 1)))`,
+      params: [user.cluster_code || '', user.cluster_code || '']
     };
   }
   return {
