@@ -42,12 +42,18 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     removeSecureFlag()
+    // Keep the app edge-to-edge, while the root content permanently reserves the
+    // navigation-bar inset. This prevents any current or future bottom controls
+    // from being rendered underneath the Android navigation area.
     enableEdgeToEdge()
     keepSystemBarsVisible()
     val restoredSession = SessionStore.load(this)
     setContent {
       MyApplicationTheme {
-        Surface(Modifier.fillMaxSize(), color = HighDensityBackground) {
+        Surface(
+          Modifier.fillMaxSize().navigationBarsPadding(),
+          color = HighDensityBackground
+        ) {
           MainApp(initialSession = restoredSession, onExitApp = { finishAndRemoveTask() })
         }
       }
