@@ -1,6 +1,7 @@
 package com.example.data
 
 import com.example.model.UserSession
+import com.example.ui.NotificationItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,6 +29,27 @@ object NotificationApi {
     request(session.token, "POST", "/api/notifications/$notificationId/publish", null, onSuccess = { onSuccess() }, onError)
   }
 
+  fun list(session: UserSession, onSuccess: (List<NotificationItem>) -> Unit, onError: (String) -> Unit) {
+    request(session.token, "GET", "/api/notifications", null, onSuccess = { obj ->
+      val array = obj.optJSONArray("data")
+      val result = buildList {
+        if (array != null) for (i in 0 until array.length()) {
+          val n = array.optJSONObject(i) ?: continue
+          add(NotificationItem(n.optString("id"), n.optString("title"), n.optString("content"), n.optString("publisher_name"), n.optString("publisher_role"), n.optString("created_at").ifBlank { null }, n.optString("published_at").ifBlank { null }, n.optString("scope_type"), n.optString("scope_id").ifBlank { null }, n.optInt("is_read", 0) == 1))
+        }
+      }
+      onSuccess(result)
+    }, onError)
+  }
+
+  fun markRead(session: UserSession, notificationId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    request(session.token, "POST", "/api/notifications/$notificationId/read", null, onSuccess = { onSuccess() }, onError)
+  }
+
+  fun dismiss(session: UserSession, notificationId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    request(session.token, "POST", "/api/notifications/$notificationId/dismiss", null, onSuccess = { onSuccess() }, onError)
+  }
+
   private fun request(token: String, method: String, path: String, body: JSONObject?, onSuccess: (JSONObject) -> Unit, onError: (String) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
       try {
@@ -45,9 +67,7 @@ object NotificationApi {
           }
           withContext(Dispatchers.Main) { onSuccess(obj) }
         }
-      } catch (e: Exception) {
-        withContext(Dispatchers.Main) { onError(e.message ?: "Network error") }
-      }
+      } catch (e: Exception) { withContext(Dispatchers.Main) { onError(e.message ?: "Network error") } }
     }
   }
 }
