@@ -38,16 +38,13 @@ messageRouter.get('/:id', async (c) => {
   const requestedLimit = Number(url.searchParams.get('limit') || 50);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? Math.floor(requestedLimit) : 50, 1), MAX_HISTORY);
   const before = url.searchParams.get('before');
-  // Keep the existing chat history query compatible until the Excel lifecycle migration is applied.
-  // Excel clients use default lifecycle values when these optional columns are absent.
-  const columns = 'id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, is_deleted, is_read, created_at, updated_at';
+  const columns = 'id, group_id, group_name, sender_id, sender_name, content, media_url, message_type, attachment_key, file_name, mime_type, file_size, link_url, client_message_id, is_deleted, is_read, created_at, updated_at, excel_status, excel_version, excel_published_at, excel_published_by';
   const result = before
     ? await c.env.DB.prepare(`SELECT ${columns} FROM messages WHERE group_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?`).bind(groupId, before, limit).all()
     : await c.env.DB.prepare(`SELECT ${columns} FROM messages WHERE group_id = ? ORDER BY created_at DESC LIMIT ?`).bind(groupId, limit).all();
   return c.json({ success: true, data: (result.results || []).reverse() });
 });
 
-// A sender may delete their own message; the group owner may delete any message.
 messageRouter.delete('/:id/:messageId', async (c) => {
   const actor = c.get('user');
   const groupId = c.req.param('id');
