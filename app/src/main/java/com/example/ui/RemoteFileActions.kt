@@ -18,13 +18,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
 import com.example.data.RealtimeMessageApi
 import com.example.data.ReportsApi
 import com.example.data.ExcelReport
@@ -111,8 +114,15 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
         dismissOnClickOutside = false
       )
     ) {
+      SideEffect {
+        (LocalView.current.parent as? DialogWindowProvider)?.window?.let { window ->
+          WindowCompat.setDecorFitsSystemWindows(window, false)
+        }
+      }
       Surface(Modifier.fillMaxSize(), color = Color.White) {
-        InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
+        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+          InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
+        }
       }
     }
   }
