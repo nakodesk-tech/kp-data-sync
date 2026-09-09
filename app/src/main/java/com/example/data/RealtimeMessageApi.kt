@@ -58,8 +58,6 @@ object RealtimeMessageApi {
           override fun contentLength() = size
           override fun writeTo(sink: BufferedSink) { context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) } ?: throw IllegalStateException("फाइल वाचता आली नाही.") }
         }
-        // HTTP headers are ASCII-safe only. The prefix distinguishes this encoding from
-        // legacy plain filenames, so names containing a literal '%' remain unchanged.
         val encodedFileName = "utf8:${Uri.encode(fileName.take(240))}"
         val request = Request.Builder().url("$BASE_URL/api/messages/$groupId/attachment").header("Authorization", "Bearer $token").header("X-Message-Type", messageType).header("X-File-Name", encodedFileName).post(body).build()
         client.newCall(request).execute().use { response ->
@@ -72,7 +70,7 @@ object RealtimeMessageApi {
     }.start()
   }
 
-  fun saveExcel(context: Context, token: String, groupId: String, messageId: String, uri: Uri, onSuccess: (Int, String) -> Unit, onError: (String) -> Unit) {
+  fun saveExcel(context: Context, token: String, groupId: String, messageId: String, uri: Uri, baseVersion: Int? = null, onSuccess: (Int, String) -> Unit, onError: (String) -> Unit) {
     Thread {
       try {
         val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
@@ -83,7 +81,9 @@ object RealtimeMessageApi {
           override fun contentLength() = size
           override fun writeTo(sink: BufferedSink) { context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) } ?: throw IllegalStateException("Excel file वाचता आली नाही.") }
         }
-        client.newCall(Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId").header("Authorization", "Bearer $token").put(body).build()).execute().use { response ->
+        val builder = Request.Builder().url("$BASE_URL/api/excel/$groupId/$messageId").header("Authorization", "Bearer $token").put(body)
+        if (baseVersion != null) builder.header("X-Excel-Base-Version", baseVersion.toString())
+        client.newCall(builder.build()).execute().use { response ->
           val json = runCatching { JSONObject(response.body?.string().orEmpty()) }.getOrElse { JSONObject() }
           if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "Excel save failed (HTTP ${response.code})" }); return@use }
           val data = json.optJSONObject("data") ?: JSONObject(); onSuccess(data.optInt("version", 1), data.optString("status", "editable"))
