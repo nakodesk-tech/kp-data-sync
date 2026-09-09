@@ -114,8 +114,9 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
         dismissOnClickOutside = false
       )
     ) {
+      val view = LocalView.current
       SideEffect {
-        (LocalView.current.parent as? DialogWindowProvider)?.window?.let { window ->
+        (view.parent as? DialogWindowProvider)?.window?.let { window ->
           WindowCompat.setDecorFitsSystemWindows(window, false)
         }
       }
