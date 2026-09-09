@@ -121,7 +121,15 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
       FileAction(Icons.Default.Download, "Download", Color(0xFF2563EB)) { if (!busy) downloadPicker.launch(message.attachmentName ?: if (isExcel) "data.xlsx" else "document.pdf") }
       if (isXlsx && !localPublished) FileAction(Icons.Default.Edit, "Edit & Fill Data", Color(0xFF7C3AED)) { if (!busy) { notice = null; showEditor = true } }
       if (isExcel && !isXlsx && !localPublished) FileAction(Icons.Default.Edit, "Edit & Fill Data", Color(0xFF7C3AED)) {
-        if (!busy) { busy = true; downloadRemoteToFile(context, token, downloadUrl, message.attachmentName ?: "data.xls", { busy = false; legacyEditingFile = it; val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it); val intent = Intent(Intent.ACTION_EDIT).apply { setDataAndType(uri, message.mimeType ?: "application/octet-stream"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }; runCatching { legacyEditLauncher.launch(intent) }.onFailure { it.delete(); legacyEditingFile = null; notice = "Excel edit करण्यासाठी योग्य app उपलब्ध नाही." } }, { busy = false; notice = it }) }
+        if (!busy) {
+          busy = true
+          downloadRemoteToFile(context, token, downloadUrl, message.attachmentName ?: "data.xls", { file ->
+            busy = false; legacyEditingFile = file
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = Intent(Intent.ACTION_EDIT).apply { setDataAndType(uri, message.mimeType ?: "application/octet-stream"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+            runCatching { legacyEditLauncher.launch(intent) }.onFailure { legacyEditingFile?.delete(); legacyEditingFile = null; notice = "Excel edit करण्यासाठी योग्य app उपलब्ध नाही." }
+          }, { busy = false; notice = it })
+        }
       }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -147,8 +155,14 @@ fun ReportEditAction(report: ExcelReport, token: String, enabled: Boolean, onSav
   }
   FileAction(Icons.Default.Edit, if (busy) "Saving..." else "Edit", Color(0xFF2563EB)) {
     if (enabled && !busy) {
-      busy = true; val url = ReportsApi.reportDownloadUrl(report.id)
-      downloadRemoteToFile(context, token, url, report.fileName, { file -> busy = false; editingFile = file; val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file); val intent = Intent(Intent.ACTION_EDIT).apply { setDataAndType(uri, report.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }; runCatching { launcher.launch(intent) }.onFailure { busy = false; file.delete(); editingFile = null; onError("Excel edit करण्यासाठी योग्य app उपलब्ध नाही.") } }, { busy = false; onError(it) })
+      busy = true
+      val url = ReportsApi.reportDownloadUrl(report.id)
+      downloadRemoteToFile(context, token, url, report.fileName, { file ->
+        busy = false; editingFile = file
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val intent = Intent(Intent.ACTION_EDIT).apply { setDataAndType(uri, report.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        runCatching { launcher.launch(intent) }.onFailure { editingFile?.delete(); editingFile = null; busy = false; onError("Excel edit करण्यासाठी योग्य app उपलब्ध नाही.") }
+      }, { busy = false; onError(it) })
     }
   }
 }
