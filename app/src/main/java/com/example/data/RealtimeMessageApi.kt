@@ -12,8 +12,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSink
 import okio.source
 import org.json.JSONObject
-import java.io.UnsupportedEncodingException
-import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 
 object RealtimeMessageApi {
