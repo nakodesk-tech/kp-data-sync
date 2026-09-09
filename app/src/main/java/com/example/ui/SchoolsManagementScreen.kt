@@ -1,6 +1,5 @@
 package com.example.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,20 +22,80 @@ import com.example.ui.theme.*
 @Composable
 fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole, onUploadExcelClick: () -> Unit) {
   var records by remember { mutableStateOf<List<SchoolRecord>>(emptyList()) }
-  var search by remember { mutableStateOf("") }; var filter by remember { mutableStateOf("all") }; var loading by remember { mutableStateOf(true) }; var error by remember { mutableStateOf<String?>(null) }; var editing by remember { mutableStateOf<SchoolRecord?>(null) }; var deleting by remember { mutableStateOf<SchoolRecord?>(null) }; var busy by remember { mutableStateOf<String?>(null) }; var add by remember { mutableStateOf(false) }
+  var search by remember { mutableStateOf("") }
+  var filter by remember { mutableStateOf("all") }
+  var loading by remember { mutableStateOf(true) }
+  var error by remember { mutableStateOf<String?>(null) }
+  var editing by remember { mutableStateOf<SchoolRecord?>(null) }
+  var deleting by remember { mutableStateOf<SchoolRecord?>(null) }
+  var busy by remember { mutableStateOf<String?>(null) }
+  var add by remember { mutableStateOf(false) }
+  var excel by remember { mutableStateOf(false) }
   val canAdd = userRole == UserRole.Admin || userRole == UserRole.Cluster_Head
   val canManage = userRole == UserRole.Admin
-  fun reload() { loading = true; error = null; BackendApi.getSchools({ records = it; loading = false }, { error = it; loading = false }) }
+
+  fun reload() {
+    loading = true; error = null
+    BackendApi.getSchools({ records = it; loading = false }, { error = it; loading = false })
+  }
   LaunchedEffect(userRole) { reload() }
-  val filtered = records.filter { s -> (filter == "all" || if (filter == "active") s.isActive else !s.isActive) && (search.isBlank() || listOf(s.schoolName, s.udiseCode, s.clusterName, s.clusterCode, s.hmName).any { it.contains(search.trim(), true) }) }
+
+  val filtered = records.filter { s ->
+    (filter == "all" || if (filter == "active") s.isActive else !s.isActive) &&
+      (search.isBlank() || listOf(s.schoolName, s.udiseCode, s.clusterName, s.clusterCode, s.hmName).any { it.contains(search.trim(), true) })
+  }
+
   if (add) { SchoolRegistrationScreen(BackendApi.currentSession(), { add = false }, { add = false; reload() }); return }
+  if (excel) { ExcelIntegrationScreen(BackendApi.currentSession(), { excel = false }); return }
+
   LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(11.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
-    item { Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("शाळा व्यवस्थापन", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033)); Text(scopeText(userRole), fontSize = 11.sp, color = Color(0xFF64748B)) }; Surface(color = Color(0xFFEDE7F6), shape = RoundedCornerShape(14.dp)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(records.size.toString(), fontSize = 21.sp, fontWeight = FontWeight.Black, color = HighDensityPrimary); Text("एकूण शाळा", fontSize = 9.sp, color = HighDensityPrimary) } }; IconButton({ reload() }) { Icon(Icons.Default.Refresh, "Refresh", tint = HighDensityPrimary) } } }
-    if (canAdd) item { Surface(onClick = { add = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xFFF5F1FF), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2D7FF))) { Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Surface(color = HighDensityPrimary, shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.AddBusiness, null, tint = Color.White, modifier = Modifier.padding(11.dp).size(25.dp)) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text("नवीन शाळा नोंदणी", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Color(0xFF35166F)); Text(if (userRole == UserRole.Cluster_Head) "आपल्या केंद्रातील नवीन शाळा नोंदवा." else "UDISE, केंद्र व शाळेची माहिती सुरक्षितपणे जतन करा.", fontSize = 11.sp, color = Color(0xFF5B4B78)) }; Icon(Icons.Default.ChevronRight, null, tint = HighDensityPrimary) } } }
+    item {
+      Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+          Text("शाळा व्यवस्थापन", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033))
+          Text(scopeText(userRole), fontSize = 11.sp, color = Color(0xFF64748B))
+        }
+        Surface(color = Color(0xFFEDE7F6), shape = RoundedCornerShape(14.dp)) {
+          Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(records.size.toString(), fontSize = 21.sp, fontWeight = FontWeight.Black, color = HighDensityPrimary)
+            Text("एकूण शाळा", fontSize = 9.sp, color = HighDensityPrimary)
+          }
+        }
+        IconButton({ reload() }) { Icon(Icons.Default.Refresh, "Refresh", tint = HighDensityPrimary) }
+      }
+    }
+    if (canAdd) item {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(onClick = { add = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xFFF5F1FF), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2D7FF))) {
+          Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = HighDensityPrimary, shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.AddBusiness, null, tint = Color.White, modifier = Modifier.padding(11.dp).size(25.dp)) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+              Text("नवीन शाळा नोंदणी", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Color(0xFF35166F))
+              Text(if (userRole == UserRole.Cluster_Head) "आपल्या केंद्रातील नवीन शाळा नोंदवा." else "UDISE, केंद्र व शाळेची माहिती सुरक्षितपणे जतन करा.", fontSize = 11.sp, color = Color(0xFF5B4B78))
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = HighDensityPrimary)
+          }
+        }
+        if (userRole == UserRole.Admin) {
+          Surface(onClick = { excel = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color.White, border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD7DEE8))) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.FileUpload, null, tint = HighDensityPrimary, modifier = Modifier.size(26.dp))
+              Spacer(Modifier.width(12.dp))
+              Column(Modifier.weight(1f)) { Text("Excel मधून डेटा Import", fontSize = 14.sp, fontWeight = FontWeight.Black); Text("Preview → Validate → Commit • Existing records सुरक्षित", fontSize = 10.sp, color = Color(0xFF64748B)) }
+              Icon(Icons.Default.ChevronRight, null, tint = HighDensityPrimary)
+            }
+          }
+        }
+      }
+    }
     item { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), color = Color.White) { Column(Modifier.padding(12.dp)) { Text("शाळा शोधा", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569)); Spacer(Modifier.height(6.dp)); OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp), placeholder = { Text("शाळेचे नाव, UDISE किंवा केंद्र शोधा…") }, leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { if (search.isNotEmpty()) IconButton({ search = "" }) { Icon(Icons.Default.Clear, "Clear") } }) } } }
     item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) { FilterChip(filter == "all", { filter = "all" }, label = { Text("सर्व ${records.size}", fontSize = 9.sp) }); FilterChip(filter == "active", { filter = "active" }, label = { Text("सक्रिय ${records.count { it.isActive }}", fontSize = 9.sp) }); FilterChip(filter == "inactive", { filter = "inactive" }, label = { Text("निष्क्रिय ${records.count { !it.isActive }}", fontSize = 9.sp) }) } }
     item { Text("${filtered.size} नोंदणीकृत शाळा", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color(0xFF172033)) }
-    if (loading) item { Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } } else if (error != null) item { Text(error.orEmpty(), color = Color(0xFFC62828), fontSize = 11.sp) } else if (filtered.isEmpty()) item { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color.White) { Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.School, null, tint = Color(0xFF94A3B8), modifier = Modifier.size(40.dp)); Text("शाळा सापडली नाही", fontWeight = FontWeight.Bold) } } } else items(filtered, key = { it.id }) { school -> SchoolCard(school, canManage, busy == school.id, { editing = school }, { busy = school.id; BackendApi.setSchoolActive(school.id, !school.isActive, { busy = null; reload() }, { busy = null; error = it }) }, { deleting = school }) }
+    if (loading) item { Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+    else if (error != null) item { Text(error.orEmpty(), color = Color(0xFFC62828), fontSize = 11.sp) }
+    else if (filtered.isEmpty()) item { Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color.White) { Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.School, null, tint = Color(0xFF94A3B8), modifier = Modifier.size(40.dp)); Text("शाळा सापडली नाही", fontWeight = FontWeight.Bold) } } }
+    else items(filtered, key = { it.id }) { school -> SchoolCard(school, canManage, busy == school.id, { editing = school }, { busy = school.id; BackendApi.setSchoolActive(school.id, !school.isActive, { busy = null; reload() }, { busy = null; error = it }) }, { deleting = school }) }
   }
   editing?.let { SchoolEditDialog(it, { editing = null; reload() }, { editing = null }) }
   deleting?.let { school -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("शाळा हटवायची आहे?") }, text = { Text("‘${school.schoolName}’ ही नोंद हटवली जाईल. संबंधित वापरकर्ते असल्यास delete नाकारले जाईल.") }, confirmButton = { TextButton({ deleting = null; busy = school.id; BackendApi.deleteSchool(school.id, { busy = null; reload() }, { busy = null; error = it }) }) { Text("हटवा", color = Color(0xFFC62828)) } }, dismissButton = { TextButton({ deleting = null }) { Text("रद्द करा") } }) }
