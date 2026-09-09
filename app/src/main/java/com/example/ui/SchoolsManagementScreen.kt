@@ -20,7 +20,7 @@ import com.example.model.*
 import com.example.ui.theme.*
 
 @Composable
-fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole, onUploadExcelClick: () -> Unit) {
+fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole) {
   var records by remember { mutableStateOf<List<SchoolRecord>>(emptyList()) }
   var search by remember { mutableStateOf("") }
   var filter by remember { mutableStateOf("all") }
@@ -30,7 +30,6 @@ fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole, onUpload
   var deleting by remember { mutableStateOf<SchoolRecord?>(null) }
   var busy by remember { mutableStateOf<String?>(null) }
   var add by remember { mutableStateOf(false) }
-  var excel by remember { mutableStateOf(false) }
   val canAdd = userRole == UserRole.Admin || userRole == UserRole.Cluster_Head
   val canManage = userRole == UserRole.Admin
 
@@ -46,7 +45,6 @@ fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole, onUpload
   }
 
   if (add) { SchoolRegistrationScreen(BackendApi.currentSession(), { add = false }, { add = false; reload() }); return }
-  if (excel) { ExcelIntegrationScreen(BackendApi.currentSession(), { excel = false }); return }
 
   LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(11.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
     item {
@@ -65,27 +63,15 @@ fun SchoolsTabContent(schools: SchoolDirectorySeed, userRole: UserRole, onUpload
       }
     }
     if (canAdd) item {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(onClick = { add = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xFFF5F1FF), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2D7FF))) {
-          Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = HighDensityPrimary, shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.AddBusiness, null, tint = Color.White, modifier = Modifier.padding(11.dp).size(25.dp)) }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-              Text("नवीन शाळा नोंदणी", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Color(0xFF35166F))
-              Text(if (userRole == UserRole.Cluster_Head) "आपल्या केंद्रातील नवीन शाळा नोंदवा." else "UDISE, केंद्र व शाळेची माहिती सुरक्षितपणे जतन करा.", fontSize = 11.sp, color = Color(0xFF5B4B78))
-            }
-            Icon(Icons.Default.ChevronRight, null, tint = HighDensityPrimary)
+      Surface(onClick = { add = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xFFF5F1FF), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2D7FF))) {
+        Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+          Surface(color = HighDensityPrimary, shape = RoundedCornerShape(12.dp)) { Icon(Icons.Default.AddBusiness, null, tint = Color.White, modifier = Modifier.padding(11.dp).size(25.dp)) }
+          Spacer(Modifier.width(12.dp))
+          Column(Modifier.weight(1f)) {
+            Text("नवीन शाळा नोंदणी", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Color(0xFF35166F))
+            Text(if (userRole == UserRole.Cluster_Head) "आपल्या केंद्रातील नवीन शाळा नोंदवा." else "UDISE, केंद्र व शाळेची माहिती सुरक्षितपणे जतन करा.", fontSize = 11.sp, color = Color(0xFF5B4B78))
           }
-        }
-        if (userRole == UserRole.Admin) {
-          Surface(onClick = { excel = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color.White, border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD7DEE8))) {
-            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.FileUpload, null, tint = HighDensityPrimary, modifier = Modifier.size(26.dp))
-              Spacer(Modifier.width(12.dp))
-              Column(Modifier.weight(1f)) { Text("Excel मधून डेटा Import", fontSize = 14.sp, fontWeight = FontWeight.Black); Text("Preview → Validate → Commit • Existing records सुरक्षित", fontSize = 10.sp, color = Color(0xFF64748B)) }
-              Icon(Icons.Default.ChevronRight, null, tint = HighDensityPrimary)
-            }
-          }
+          Icon(Icons.Default.ChevronRight, null, tint = HighDensityPrimary)
         }
       }
     }
