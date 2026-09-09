@@ -12,6 +12,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSink
 import okio.source
 import org.json.JSONObject
+import java.io.UnsupportedEncodingException
+import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 
 object RealtimeMessageApi {
@@ -58,7 +60,11 @@ object RealtimeMessageApi {
           override fun contentLength() = size
           override fun writeTo(sink: BufferedSink) { context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) } ?: throw IllegalStateException("फाइल वाचता आली नाही.") }
         }
-        val request = Request.Builder().url("$BASE_URL/api/messages/$groupId/attachment").header("Authorization", "Bearer $token").header("X-Message-Type", messageType).header("X-File-Name", fileName.take(240)).post(body).build()
+        // HTTP header values cannot safely contain arbitrary Unicode. Encode the filename
+        // as ASCII percent-encoded UTF-8 before putting it into the custom header.
+        // The backend decodes it before applying its filename/path sanitization.
+        val encodedFileName = Uri.encode(fileName.take(240))
+        val request = Request.Builder().url("$BASE_URL/api/messages/$groupId/attachment").header("Authorization", "Bearer $token").header("X-Message-Type", messageType).header("X-File-Name", encodedFileName).post(body).build()
         client.newCall(request).execute().use { response ->
           val raw = response.body?.string().orEmpty(); val json = runCatching { JSONObject(raw) }.getOrElse { JSONObject() }
           if (!response.isSuccessful || !json.optBoolean("success", false)) { onError(json.optString("error").ifBlank { "Attachment upload failed (HTTP ${response.code})" }); return@use }
