@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -20,8 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.BackendApi
 import com.example.data.ExcelReport
 import com.example.data.ReportsApi
+import com.example.model.ChatGroup
 import com.example.model.UserRole
 import com.example.model.UserSession
 import com.example.ui.theme.HighDensityBackground
@@ -31,6 +34,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(session: UserSession) {
   val context = LocalContext.current
@@ -48,12 +52,54 @@ fun ReportsScreen(session: UserSession) {
   var downloadTarget by remember { mutableStateOf<ExcelReport?>(null) }
   var downloading by remember { mutableStateOf(false) }
 
+  var showUpload by remember { mutableStateOf(false) }
+  var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
+  var selectedFileName by remember { mutableStateOf("") }
+  var groups by remember { mutableStateOf<List<ChatGroup>>(emptyList()) }
+  var selectedGroupId by remember { mutableStateOf("") }
+  var groupsLoading by remember { mutableStateOf(false) }
+  var uploading by remember { mutableStateOf(false) }
+  var uploadError by remember { mutableStateOf<String?>(null) }
+  var groupMenuExpanded by remember { mutableStateOf(false) }
+
   val canManage = session.role == UserRole.Admin || session.role == UserRole.Cluster_Head
+  val canUpload = canManage
 
   fun loadReports() {
     loading = true
     error = null
     ReportsApi.getPublishedReports(session.token, { reports = it; loading = false }, { error = it; loading = false })
+  }
+
+  fun openUpload() {
+    showUpload = true
+    uploadError = null
+    if (groups.isEmpty()) {
+      groupsLoading = true
+      BackendApi.getGroups(session.token,
+        onSuccess = { list -> groups = list; groupsLoading = false; if (selectedGroupId.isBlank()) selectedGroupId = list.firstOrNull()?.id.orEmpty() },
+        onError = { message -> groupsLoading = false; uploadError = message }
+      )
+    } else if (selectedGroupId.isBlank()) selectedGroupId = groups.firstOrNull()?.id.orEmpty()
+  }
+
+  fun closeUpload() {
+    if (!uploading) {
+      showUpload = false
+      selectedFileUri = null
+      selectedFileName = ""
+      uploadError = null
+      groupMenuExpanded = false
+    }
+  }
+
+  val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    if (uri != null) {
+      selectedFileUri = uri
+      selectedFileName = runCatching {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else "" }.orEmpty()
+      }.getOrDefault("").ifBlank { uri.lastPathSegment.orEmpty() }
+    }
   }
 
   val downloadPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -81,9 +127,14 @@ fun ReportsScreen(session: UserSession) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
       Column(Modifier.weight(1f)) {
         Text("Reports", fontSize = 24.sp, fontWeight = FontWeight.Black, color = HighDensityOnBackground)
-        Text("Group मध्ये Publish केलेल्या फाइल्स", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+        Text("Published files + Direct Report Upload", fontSize = 12.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
       }
-      if (downloading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = HighDensityPrimary)
+      if (canUpload) {
+        Button(onClick = { openUpload() }, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 9.dp), colors = ButtonDefaults.buttonColors(containerColor = HighDensityPrimary)) {
+          Icon(Icons.Default.CloudUpload, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Report Upload करा", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+      }
+      if (downloading) { Spacer(Modifier.width(8.dp)); CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = HighDensityPrimary) }
     }
 
     OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp), singleLine = true, placeholder = { Text("Reports शोधा...", color = Color(0xFF94A3B8)) }, leadingIcon = { Icon(Icons.Default.Search, null, tint = Color(0xFF64748B)) }, shape = RoundedCornerShape(16.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFB8C7D9), unfocusedBorderColor = Color(0xFFB8C7D9), focusedTextColor = HighDensityOnBackground, unfocusedTextColor = HighDensityOnBackground))
@@ -94,10 +145,7 @@ fun ReportsScreen(session: UserSession) {
       ReportFilterChip("PDF ($pdfCount)", selectedFilter == "PDF") { selectedFilter = "PDF" }
       Box {
         OutlinedButton(onClick = { sortExpanded = true }, shape = RoundedCornerShape(18.dp), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) { Text(if (sortNewestFirst) "नवीन प्रथम" else "जुने प्रथम", fontSize = 11.sp, fontWeight = FontWeight.SemiBold); Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(18.dp)) }
-        DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
-          DropdownMenuItem(text = { Text("नवीन प्रथम") }, onClick = { sortNewestFirst = true; sortExpanded = false })
-          DropdownMenuItem(text = { Text("जुने प्रथम") }, onClick = { sortNewestFirst = false; sortExpanded = false })
-        }
+        DropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) { DropdownMenuItem(text = { Text("नवीन प्रथम") }, onClick = { sortNewestFirst = true; sortExpanded = false }); DropdownMenuItem(text = { Text("जुने प्रथम") }, onClick = { sortNewestFirst = false; sortExpanded = false }) }
       }
     }
 
@@ -119,14 +167,42 @@ fun ReportsScreen(session: UserSession) {
         }
         item {
           Surface(Modifier.fillMaxWidth(), RoundedCornerShape(18.dp), color = Color(0xFFEAF2FF)) {
-            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-              Icon(Icons.Default.Lock, null, tint = Color(0xFF2563EB), modifier = Modifier.size(22.dp)); Spacer(Modifier.width(10.dp))
-              Column { Text("Published files", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB)); Text("Group मध्ये Publish केल्यानंतर सामान्य users या फाइलमध्ये बदल करू शकत नाहीत. App Admin आणि Cluster Head Reports मधून Excel संपादित करू शकतात.", fontSize = 11.sp, color = Color(0xFF526784), lineHeight = 16.sp) }
-            }
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) { Icon(Icons.Default.Lock, null, tint = Color(0xFF2563EB), modifier = Modifier.size(22.dp)); Spacer(Modifier.width(10.dp)); Column { Text("Published files", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB)); Text("Group मधून Publish झालेल्या फाइल्स आणि Reports मधून थेट Group ला पाठवलेल्या Reports येथे दिसतात. सामान्य users Published file बदलू शकत नाहीत; App Admin आणि Cluster Head Reports मधून Excel संपादित करू शकतात.", fontSize = 11.sp, color = Color(0xFF526784), lineHeight = 16.sp) } }
           }
         }
       }
     }
+  }
+
+  if (showUpload) {
+    AlertDialog(onDismissRequest = { closeUpload() }, title = { Text("Report Upload करा", fontWeight = FontWeight.Bold) }, text = {
+      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Excel किंवा PDF Report निवडा आणि संबंधित Group मध्ये पाठवा.", color = Color(0xFF64748B), fontSize = 13.sp)
+        Box {
+          OutlinedButton(onClick = { groupMenuExpanded = true }, enabled = !groupsLoading && !uploading && groups.isNotEmpty(), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 11.dp)) {
+            Icon(Icons.Default.Groups, null, tint = HighDensityPrimary); Spacer(Modifier.width(8.dp)); Text(groups.firstOrNull { it.id == selectedGroupId }?.name ?: if (groupsLoading) "Group माहिती घेत आहे..." else "Report साठी Group निवडा", modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis); Icon(Icons.Default.KeyboardArrowDown, null)
+          }
+          DropdownMenu(expanded = groupMenuExpanded, onDismissRequest = { groupMenuExpanded = false }) { groups.forEach { group -> DropdownMenuItem(text = { Text(group.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { selectedGroupId = group.id; groupMenuExpanded = false }) } }
+        }
+        Surface(Modifier.fillMaxWidth().clickable(enabled = !uploading) { picker.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv", "application/pdf")) }, RoundedCornerShape(14.dp), color = Color(0xFFF5F7FB)) {
+          Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(if (selectedFileUri == null) Icons.Default.AttachFile else Icons.Default.Description, null, tint = HighDensityPrimary); Spacer(Modifier.width(10.dp)); Text(if (selectedFileName.isBlank()) "Report file निवडा" else selectedFileName, color = HighDensityOnBackground, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        }
+        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(10.dp), color = Color(0xFFF0FDF4)) { Text("Group मध्ये दिसणारा tag:  Sent from Reports By ${session.name}", modifier = Modifier.padding(9.dp), fontSize = 10.sp, color = Color(0xFF166534), fontWeight = FontWeight.SemiBold) }
+        Text("फक्त App Admin आणि Cluster Head करिता.", fontSize = 11.sp, color = HighDensityPrimary, fontWeight = FontWeight.SemiBold)
+        uploadError?.let { Text(it, fontSize = 12.sp, color = Color(0xFF9A3412)) }
+        if (uploading) { LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = HighDensityPrimary); Text("Report upload होत आहे...", fontSize = 11.sp, color = Color(0xFF64748B)) }
+      }
+    }, confirmButton = {
+      Button(onClick = {
+        val uri = selectedFileUri ?: run { uploadError = "Report file निवडा."; return@Button }
+        if (selectedGroupId.isBlank()) { uploadError = "Report साठी Group निवडा."; return@Button }
+        uploading = true; uploadError = null
+        ReportsApi.uploadReport(context, session.token, selectedGroupId, uri,
+          onSuccess = { uploading = false; showUpload = false; selectedFileUri = null; selectedFileName = ""; uploadError = null; groupMenuExpanded = false; loadReports() },
+          onError = { uploading = false; uploadError = it }
+        )
+      }, enabled = selectedFileUri != null && selectedGroupId.isNotBlank() && !uploading) { Text(if (uploading) "Uploading..." else "Upload") }
+    }, dismissButton = { TextButton(enabled = !uploading, onClick = { closeUpload() }) { Text("रद्द करा") } })
   }
 
   deleteTarget?.let { report ->
