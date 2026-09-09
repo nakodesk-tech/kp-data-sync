@@ -28,8 +28,6 @@ CREATE TABLE IF NOT EXISTS schools (
 );
 
 -- 2. USERS TABLE
--- Roles: Admin, Cluster_Head, School_HM, Teacher
--- Status: Active, Inactive
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -49,7 +47,6 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- 3. GROUPS TABLE
--- group_type describes the group category. scope_type controls visibility.
 CREATE TABLE IF NOT EXISTS groups (
     id TEXT PRIMARY KEY,
     group_name TEXT NOT NULL,
@@ -98,6 +95,10 @@ CREATE TABLE IF NOT EXISTS messages (
     client_message_id TEXT,
     is_deleted INTEGER DEFAULT 0,
     is_read INTEGER DEFAULT 0,
+    excel_status TEXT NOT NULL DEFAULT 'editable',
+    excel_version INTEGER NOT NULL DEFAULT 1,
+    excel_published_at TEXT,
+    excel_published_by TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
@@ -162,6 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_group_created_at ON messages(group_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_group_client_message ON messages(group_id, sender_id, client_message_id);
 CREATE INDEX IF NOT EXISTS idx_messages_attachment_key ON messages(attachment_key);
+CREATE INDEX IF NOT EXISTS idx_messages_excel_status ON messages(group_id, message_type, excel_status);
 CREATE INDEX IF NOT EXISTS idx_tasks_target_code ON tasks(target_code);
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON tasks(created_by);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
