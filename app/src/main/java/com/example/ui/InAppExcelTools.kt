@@ -9,6 +9,7 @@ internal data class ExcelCellStyle(
   var border:Boolean=false,var numberFormat:String?=null,var hidden:Boolean=false,var baseStyleId:Int=0
 )
 internal data class ExcelCellSnapshot(val sheet:Int,val row:Int,val column:Int,val value:String,val formula:String?,val style:ExcelCellStyle)
+internal data class ExcelClipboardCell(val value:String,val formula:String?,val style:ExcelCellStyle)
 internal object InAppExcelFormula{
   private val ref=Regex("\\b([A-Z]{1,3}[0-9]+)\\b")
   fun evaluate(formula:String,lookup:(String)->Double?):Double?{val f=formula.trim().removePrefix("=").trim();if(f.isBlank())return null;val fn=Regex("(?i)^(SUM|MIN|MAX|AVERAGE|COUNT)\\((.*)\\)$").matchEntire(f);if(fn!=null){val v=args(fn.groupValues[2],lookup);return when(fn.groupValues[1].uppercase()){"SUM"->v.sum();"MIN"->v.minOrNull();"MAX"->v.maxOrNull();"AVERAGE"->v.takeIf{it.isNotEmpty()}?.average();"COUNT"->v.size.toDouble();else->null}};var e=f.replace("%","/100");ref.findAll(e).map{it.value}.distinct().forEach{r->lookup(r)?.let{x->e=e.replace(Regex("\\b${Regex.escape(r)}\\b"),x.toString())}};if(Regex("[^0-9+\\-*/(). %]+",RegexOption.IGNORE_CASE).containsMatchIn(e))return null;return Expr(e).parse()}

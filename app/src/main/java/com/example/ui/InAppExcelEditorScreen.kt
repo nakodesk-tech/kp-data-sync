@@ -6,10 +6,11 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,10 +64,11 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
   var showFont by remember { mutableStateOf(false) }
   var showNumber by remember { mutableStateOf(false) }
   var showFilter by remember { mutableStateOf(false) }
+  var filterText by remember { mutableStateOf("") }
   var inputText by remember { mutableStateOf("") }
   val undo = remember { mutableStateListOf<InAppXlsxWorkbook>() }
   val redo = remember { mutableStateListOf<InAppXlsxWorkbook>() }
-  var clipboard by remember { mutableStateOf<Triple<String, String?, ExcelCellStyle>?>(null) }
+  var clipboard by remember { mutableStateOf<List<ExcelClipboardCell>?>(null) }
   val horizontal = rememberScrollState()
   val listState = rememberLazyListState()
 
@@ -85,8 +87,8 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
   fun saveWorkbook() { val w = workbook ?: return; saving = true; notice = null; Thread { try { val out = File.createTempFile("kp_excel_save_", ".xlsx", context.cacheDir); w.saveTo(out); val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", out); RealtimeMessageApi.saveExcel(context, token, message.groupId, message.id, uri, message.excelVersion, onSuccess = { v, _ -> saving = false; dirty = false; notice = "बदल सेव्ह झाले • Version $v"; out.delete() }, onError = { saving = false; notice = it; out.delete() }) } catch (e: Exception) { saving = false; notice = "Excel सेव्ह करता आली नाही: ${e.message}" } }.start() }
   fun undoOnce() { if (undo.isNotEmpty()) { val w = workbook ?: return; redo.add(w.snapshot()); w.restoreFrom(undo.removeAt(undo.lastIndex)); dirty = true; touch() } }
   fun redoOnce() { if (redo.isNotEmpty()) { val w = workbook ?: return; undo.add(w.snapshot()); w.restoreFrom(redo.removeAt(redo.lastIndex)); dirty = true; touch() } }
-  fun copyCell(cut: Boolean) { val w = workbook ?: return; val s = w.sheets[sheetIndex]; val f = s.formulas.getOrNull(selectedRow)?.getOrNull(selectedCol); clipboard = Triple(s.cells.getOrNull(selectedRow)?.getOrNull(selectedCol).orEmpty(), f, w.styleAt(sheetIndex, selectedRow, selectedCol)); if (cut) { checkpoint(); w.clearCell(sheetIndex, selectedRow, selectedCol); inputText = ""; dirty = true; touch() }; notice = if (cut) "Cell cut झाली." else "Cell copy झाली." }
-  fun pasteCell() { val x = clipboard ?: return; checkpoint(); setValue(selectedRow, selectedCol, x.first); current()?.setStyle(sheetIndex, selectedRow, selectedCol, x.third.copy(baseStyleId = 0)); inputText = x.first; notice = "Cell paste झाली." }
+  fun copyCell(cut: Boolean) { val w = workbook ?: return; val s = w.sheets[sheetIndex]; val q = range(); clipboard = buildList { for (r in q[0]..q[1]) for (c in q[2]..q[3]) add(ExcelClipboardCell(s.cells.getOrNull(r)?.getOrNull(c).orEmpty(), s.formulas.getOrNull(r)?.getOrNull(c), w.styleAt(sheetIndex, r, c))) }; if (cut) { checkpoint(); for (r in q[0]..q[1]) for (c in q[2]..q[3]) w.clearCell(sheetIndex, r, c); inputText = ""; dirty = true; touch() }; notice = if (cut) "Range cut झाली." else "Range copy झाली." }
+  fun pasteCell() { val source = clipboard ?: return; val q = range(); checkpoint(); val sourceWidth = maxOf(1, q[3] - q[2] + 1); source.forEachIndexed { index, cell -> val r = selectedRow + index / sourceWidth; val c = selectedCol + index % sourceWidth; setValue(r, c, cell.value); current()?.setStyle(sheetIndex, r, c, cell.style.copy(baseStyleId = 0)) }; inputText = source.firstOrNull()?.value.orEmpty(); notice = "Range paste झाली." }
   fun insertRow() { checkpoint(); current()?.insertRow(sheetIndex, selectedRow); dirty = true; touch() }
   fun deleteRow() { checkpoint(); current()?.deleteRow(sheetIndex, selectedRow); selectedRow = selectedRow.coerceAtMost((current()?.sheets?.get(sheetIndex)?.cells?.lastIndex ?: 0)); dirty = true; touch() }
   fun insertCol() { checkpoint(); current()?.insertColumn(sheetIndex, selectedCol); dirty = true; touch() }
@@ -100,6 +102,7 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
   val sheet = w.sheets.getOrNull(sheetIndex) ?: return
   val width = sheet.cells.maxOfOrNull { it.size } ?: 1
   val q = range()
+  val visibleRows = remember(sheetIndex, filterText, revision) { sheet.cells.indices.filter { r -> filterText.isBlank() || sheet.cells[r].any { it.contains(filterText, true) } } }
 
   LaunchedEffect(sheetIndex, selectedRow, selectedCol) { inputText = sheet.cells.getOrNull(selectedRow)?.getOrNull(selectedCol).orEmpty() }
 
@@ -125,7 +128,8 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
         Column(Modifier.width((42 + width * 140).dp)) {
           Row { Box(Modifier.width(42.dp).height(34.dp).background(Color(0xFFE2E8F0)), contentAlignment = Alignment.Center) { Text("#", fontWeight = FontWeight.Bold, fontSize = 10.sp) }; repeat(width) { c -> Box(Modifier.width(140.dp).height(34.dp).background(Color(0xFFE2E8F0)), contentAlignment = Alignment.Center) { Text(columnName(c + 1), fontWeight = FontWeight.Bold, fontSize = 10.sp) } } }
           LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
-            itemsIndexed(sheet.cells) { r, row ->
+            items(visibleRows) { r ->
+              val row = sheet.cells[r]
               Row {
                 Box(Modifier.width(42.dp).height(48.dp).background(Color(0xFFF1F5F9)), contentAlignment = Alignment.Center) { Text((r + 1).toString(), fontSize = 9.sp) }
                 repeat(width) { c ->
@@ -134,8 +138,8 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
                   val st = sheet.styles.getOrNull(r)?.getOrNull(c) ?: ExcelCellStyle()
                   val selected = r in q[0]..q[1] && c in q[2]..q[3]
                   val bg = st.background?.let { runCatching { Color(AndroidColor.parseColor("#$it")) }.getOrNull() } ?: Color.White
-                  Box(modifier = Modifier.width(140.dp).height(48.dp).background(if (selected) Color(0xFFE6FFFA) else bg).clickable { select(r, c) }, contentAlignment = Alignment.CenterStart) {
-                    Text(text = value, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), fontSize = st.fontSize.sp, fontWeight = if (st.bold) FontWeight.Bold else FontWeight.Normal, fontStyle = if (st.italic) FontStyle.Italic else FontStyle.Normal, textDecoration = if (st.underline) TextDecoration.Underline else TextDecoration.None, textAlign = when (st.horizontal) { "center" -> TextAlign.Center; "right" -> TextAlign.End; else -> TextAlign.Start }, maxLines = if (st.wrap) Int.MAX_VALUE else 1)
+                  Box(modifier = Modifier.width(140.dp).height(48.dp).background(if (selected) Color(0xFFE6FFFA) else bg).combinedClickable(onClick = { select(r, c) }, onLongClick = { select(r, c, anchor = true) }), contentAlignment = Alignment.CenterStart) {
+                    Text(text = w.displayValue(sheetIndex, r, c), modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), fontSize = st.fontSize.sp, fontWeight = if (st.bold) FontWeight.Bold else FontWeight.Normal, fontStyle = if (st.italic) FontStyle.Italic else FontStyle.Normal, textDecoration = if (st.underline) TextDecoration.Underline else TextDecoration.None, textAlign = when (st.horizontal) { "center" -> TextAlign.Center; "right" -> TextAlign.End; else -> TextAlign.Start }, maxLines = if (st.wrap) Int.MAX_VALUE else 1)
                   }
                 }
               }
@@ -150,9 +154,9 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
   if (showRename) TextInputDialog("Sheet rename", "New sheet name", { name -> checkpoint(); w.renameSheet(sheetIndex, name); dirty = true; showRename = false; touch() }, { showRename = false })
   if (showFont) TextInputDialog("Font size", "11", { v -> v.toIntOrNull()?.coerceIn(6, 48)?.let { n -> styleChange { it.copy(fontSize = n) } }; showFont = false }, { showFont = false })
   if (showNumber) TextInputDialog("Number format", "0.00 / 0% / 0.00% / yyyy-mm-dd", { v -> styleChange { it.copy(numberFormat = v) }; showNumber = false }, { showNumber = false })
-  if (showSearch) TextInputDialog("Find", "text", { v -> searchText = v; showSearch = false; notice = findCellText(w, v) }, { showSearch = false })
+  if (showSearch) TextInputDialog("Find", "text", { v -> searchText = v; showSearch = false; findCell(w, v)?.let { (si, r, c) -> sheetIndex = si; selectedRow = r; selectedCol = c; anchorRow = r; anchorCol = c; notice = "Found in ${w.sheets[si].name}: ${columnName(c + 1)}${r + 1}" } ?: run { notice = "Text सापडला नाही." } }, { showSearch = false })
   if (showReplace) ReplaceDialog { a, b -> checkpoint(); w.sheets.forEachIndexed { si, s -> s.cells.forEachIndexed { r, row -> row.forEachIndexed { c, v -> if (v.contains(a, true)) w.setCell(si, r, c, v.replace(a, b, true)) } } }; dirty = true; showReplace = false; touch() }
-  if (showFilter) TextInputDialog("Filter rows", "keyword", { v -> notice = "Filter helper: rows containing '$v' are identified in this view."; showFilter = false }, { showFilter = false })
+  if (showFilter) TextInputDialog("Filter rows", "keyword", { v -> filterText = v; notice = if (v.isBlank()) "Filter cleared." else "Rows filtered by '$v'."; showFilter = false; touch() }, { showFilter = false })
   revision
 }
 
@@ -165,6 +169,6 @@ private fun TextInputDialog(title: String, placeholder: String, onOk: (String) -
 @Composable
 private fun ReplaceDialog(onOk: (String, String) -> Unit) { var a by remember { mutableStateOf("") }; var b by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = {}, title = { Text("Find & Replace") }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedTextField(a, { a = it }, label = { Text("Find") }); OutlinedTextField(b, { b = it }, label = { Text("Replace with") }) } }, confirmButton = { TextButton(onClick = { onOk(a, b) }) { Text("Replace all") } }) }
 
-private fun findCellText(w: InAppXlsxWorkbook, text: String): String { for ((si, s) in w.sheets.withIndex()) for ((r, row) in s.cells.withIndex()) for ((c, v) in row.withIndex()) if (v.contains(text, true)) return "Found in ${s.name}: ${columnName(c + 1)}${r + 1}"; return "Text सापडला नाही." }
+private fun findCell(w: InAppXlsxWorkbook, text: String): Triple<Int, Int, Int>? { if (text.isBlank()) return null; for ((si, s) in w.sheets.withIndex()) for ((r, row) in s.cells.withIndex()) for ((c, v) in row.withIndex()) if (v.contains(text, true)) return Triple(si, r, c); return null }
 
 private fun columnName(number: Int): String { var n = number; val out = StringBuilder(); while (n > 0) { val r = (n - 1) % 26; out.append(('A'.code + r).toChar()); n = (n - 1) / 26 }; return out.reverse().toString() }

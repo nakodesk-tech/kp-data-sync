@@ -36,6 +36,14 @@ internal class InAppXlsxWorkbook private constructor(
   fun setStyle(sheetIndex:Int,row:Int,column:Int,style:ExcelCellStyle){ensure(sheetIndex,row,column);sheets[sheetIndex].styles[row][column]=style.copy()}
   fun styleAt(sheetIndex:Int,row:Int,column:Int):ExcelCellStyle{ensure(sheetIndex,row,column);return sheets[sheetIndex].styles[row][column].copy()}
   fun clearCell(sheetIndex:Int,row:Int,column:Int)=setCell(sheetIndex,row,column,"")
+  fun displayValue(sheetIndex:Int,row:Int,column:Int):String {
+    val sheet=sheets.getOrNull(sheetIndex) ?: return ""
+    val value=sheet.cells.getOrNull(row)?.getOrNull(column).orEmpty()
+    val formula=sheet.formulas.getOrNull(row)?.getOrNull(column) ?: return value
+    return InAppExcelFormula.evaluate(formula) { ref -> cellNumber(sheet, ref) }
+      ?.let { number -> if (number % 1.0 == 0.0) number.toLong().toString() else number.toString() }
+      ?: value
+  }
 
   fun insertRow(sheetIndex:Int,at:Int){val s=sheets[sheetIndex];val i=at.coerceIn(0,s.cells.size);val w=s.cells.maxOfOrNull{it.size}?:1;s.cells.add(i,MutableList(w){""});s.formulas.add(i,MutableList(w){null});s.styles.add(i,MutableList(w){ExcelCellStyle()});}
   fun deleteRow(sheetIndex:Int,at:Int){val s=sheets[sheetIndex];if(at !in s.cells.indices)return;s.cells.removeAt(at);if(at<s.formulas.size)s.formulas.removeAt(at);if(at<s.styles.size)s.styles.removeAt(at)}
@@ -53,7 +61,7 @@ internal class InAppXlsxWorkbook private constructor(
   fun snapshot():InAppXlsxWorkbook{val e=LinkedHashMap<String,ByteArray>();entries.forEach{(k,v)->e[k]=v.clone()};val s=sheets.map{InAppSheet(it.name,it.entryName,it.cells.map{r->r.toMutableList()}.toMutableList(),it.formulas.map{r->r.toMutableList()}.toMutableList(),it.styles.map{r->r.map{st->st.copy()}.toMutableList()}.toMutableList(),it.hidden)}.toMutableList();val w=InAppXlsxWorkbook(e,s);merges.forEach{(k,v)->w.merges[k]=v.toMutableSet()};return w}
   fun restoreFrom(other:InAppXlsxWorkbook){entries.clear();other.entries.forEach{(k,v)->entries[k]=v.clone()};sheets.clear();sheets.addAll(other.sheets.map{InAppSheet(it.name,it.entryName,it.cells.map{r->r.toMutableList()}.toMutableList(),it.formulas.map{r->r.toMutableList()}.toMutableList(),it.styles.map{r->r.map{st->st.copy()}.toMutableList()}.toMutableList(),it.hidden)});merges.clear();other.merges.forEach{(k,v)->merges[k]=v.toMutableSet()}}
 
-  fun saveTo(target:File){val output=LinkedHashMap(entries);sheets.forEach{s->output[s.entryName]=updateSheet(output[s.entryName]?:blankSheetXml(),s)};materializeStyles(output);updateWorkbookXml(output);ZipOutputStream(FileOutputStream(target)).use{zip->output.forEach{(name,bytes)->zip.putNextEntry(ZipEntry(name));zip.write(bytes);zip.closeEntry()}}}
+  fun saveTo(target:File){val output=LinkedHashMap(entries);sheets.forEach{s->output[s.entryName]=updateSheet(output[s.entryName]?:blankSheetXml(),s)};materializeStyles(output);val relationshipIds=updateWorkbookRelationships(output);updateWorkbookXml(output,relationshipIds);ZipOutputStream(FileOutputStream(target)).use{zip->output.forEach{(name,bytes)->zip.putNextEntry(ZipEntry(name));zip.write(bytes);zip.closeEntry()}}}
 
   private fun parseXml(bytes: ByteArray): Document = parseXmlStatic(bytes)
 
@@ -225,7 +233,7 @@ internal class InAppXlsxWorkbook private constructor(
     }
   }
 
-  private fun updateWorkbookXml(output: MutableMap<String, ByteArray>) {
+  private fun updateWorkbookXml(output: MutableMap<String, ByteArray>, relationshipIds: Map<String, String>) {
     val wb = output["xl/workbook.xml"] ?: return
     val doc = parseXml(wb)
     val sp = doc.getElementsByTagName("sheets").item(0) as? Element ?: return
@@ -234,10 +242,37 @@ internal class InAppXlsxWorkbook private constructor(
       val e = doc.createElement("sheet")
       e.setAttribute("name", s.name)
       e.setAttribute("sheetId", (i + 1).toString())
-      e.setAttribute("r:id", "rId${i + 1}")
+      e.setAttribute("r:id", relationshipIds.getValue(s.entryName))
       sp.appendChild(e)
     }
     output["xl/workbook.xml"] = serializeXml(doc)
+  }
+
+  private fun updateWorkbookRelationships(output: MutableMap<String, ByteArray>): Map<String, String> {
+    val path = "xl/_rels/workbook.xml.rels"
+    val doc = parseXml(output[path] ?: """<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>""".toByteArray())
+    val root = doc.documentElement
+    val relationships = root.getElementsByTagName("Relationship")
+    val worksheetRelationships = (0 until relationships.length)
+      .map { relationships.item(it) as Element }
+      .filter { it.getAttribute("Type").endsWith("/worksheet") }
+    worksheetRelationships.forEach { root.removeChild(it) }
+
+    var nextId = (0 until relationships.length)
+      .mapNotNull { (relationships.item(it) as Element).getAttribute("Id").removePrefix("rId").toIntOrNull() }
+      .maxOrNull()?.plus(1) ?: 1
+    val ids = linkedMapOf<String, String>()
+    sheets.forEach { sheet ->
+      val id = "rId${nextId++}"
+      val relationship = doc.createElement("Relationship")
+      relationship.setAttribute("Id", id)
+      relationship.setAttribute("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet")
+      relationship.setAttribute("Target", sheet.entryName.removePrefix("xl/"))
+      root.appendChild(relationship)
+      ids[sheet.entryName] = id
+    }
+    output[path] = serializeXml(doc)
+    return ids
   }
 
   private fun ensure(si: Int, r: Int, c: Int) {
@@ -253,11 +288,19 @@ internal class InAppXlsxWorkbook private constructor(
     while (s.styles[r].size <= c) s.styles[r].add(ExcelCellStyle())
   }
 
-  private fun cellNumber(s: InAppSheet, ref: String): Double? {
+  private fun cellNumber(s: InAppSheet, ref: String, path: MutableSet<String> = mutableSetOf()): Double? {
     val m = Regex("([A-Z]+)([0-9]+)", RegexOption.IGNORE_CASE).matchEntire(ref.trim()) ?: return null
     val c = m.groupValues[1].uppercase().fold(0) { n, ch -> n * 26 + ch.code - 64 } - 1
     val r = m.groupValues[2].toInt() - 1
-    return s.cells.getOrNull(r)?.getOrNull(c)?.toDoubleOrNull()
+    val key = "${m.groupValues[1].uppercase()}${m.groupValues[2]}"
+    if (!path.add(key)) return null
+    return try {
+      val raw = s.cells.getOrNull(r)?.getOrNull(c).orEmpty()
+      val formula = s.formulas.getOrNull(r)?.getOrNull(c)
+      formula?.let { InAppExcelFormula.evaluate(it) { nested -> cellNumber(s, nested, path) } } ?: raw.toDoubleOrNull()
+    } finally {
+      path.remove(key)
+    }
   }
 
   private fun rangeContains(range: String, row: Int, col: Int): Boolean {
