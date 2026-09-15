@@ -9,6 +9,7 @@ import java.io.File
 @Composable
 internal fun InAppExcelEditorV2Screen(
     workbook: InAppXlsxWorkbook,
+    fileName: String? = null,
     onBack: () -> Unit,
     onSaved: (File) -> Unit
 ) {
@@ -16,6 +17,7 @@ internal fun InAppExcelEditorV2Screen(
     val engine = remember(workbook) { workbook.toSpreadsheetWorkbook() }
     MobileSpreadsheetEditorScreen(
         workbook = engine,
+        fileName = fileName ?: "Schools.xlsx",
         onBack = onBack,
         onSave = {
             runCatching {

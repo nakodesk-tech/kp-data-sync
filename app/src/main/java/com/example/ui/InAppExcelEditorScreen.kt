@@ -63,7 +63,7 @@ fun InAppExcelEditorScreen(message: GroupMessage, token: String, canPublish: Boo
     when {
         loading -> Column(Modifier.fillMaxSize().background(Color.White), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { CircularProgressIndicator(); Spacer(Modifier.height(12.dp)); Text("Excel उघडत आहे…") }
         error != null -> Column(Modifier.fillMaxSize().background(Color.White), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { Text(error.orEmpty()) }
-        workbook != null -> InAppExcelEditorV2Screen(workbook = workbook!!, onBack = onBack) { editedFile ->
+        workbook != null -> InAppExcelEditorV2Screen(workbook = workbook!!, fileName = message.attachmentName ?: "Schools.xlsx", onBack = onBack) { editedFile ->
             val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", editedFile)
             RealtimeMessageApi.saveExcel(context, token, message.groupId, message.id, uri, message.excelVersion,
                 onSuccess = { _, _ -> editedFile.delete(); onBack() },

@@ -109,7 +109,7 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
       val view = LocalView.current
       SideEffect { (view.parent as? DialogWindowProvider)?.window?.let { WindowCompat.setDecorFitsSystemWindows(it, false) } }
       Surface(Modifier.fillMaxSize(), color = Color.White) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+        Box(Modifier.fillMaxSize()) {
           InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
         }
       }
@@ -156,8 +156,8 @@ fun ReportEditAction(report: ExcelReport, token: String, enabled: Boolean, onSav
       val view = LocalView.current
       SideEffect { (view.parent as? DialogWindowProvider)?.window?.let { WindowCompat.setDecorFitsSystemWindows(it, false) } }
       Surface(Modifier.fillMaxSize(), color = Color.White) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-          InAppExcelEditorV2Screen(workbook = editorWorkbook!!, onBack = { if (!busy) showEditor = false }, onSaved = { file ->
+        Box(Modifier.fillMaxSize()) {
+          InAppExcelEditorV2Screen(workbook = editorWorkbook!!, fileName = report.fileName, onBack = { if (!busy) showEditor = false }, onSaved = { file ->
             busy = true
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             RealtimeMessageApi.saveExcel(context, token, report.groupId, report.id, uri, report.version,
