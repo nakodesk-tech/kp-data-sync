@@ -3,10 +3,11 @@ package com.example.ui
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.example.excel.engine.SpreadsheetWorkbook
+import com.example.excel.ui.SpreadsheetEditorScreen
 import java.io.File
 
 @Composable
-fun InAppExcelEditorV2Screen(
+internal fun InAppExcelEditorV2Screen(
     workbook: InAppXlsxWorkbook,
     onBack: () -> Unit,
     onSaved: (File) -> Unit
