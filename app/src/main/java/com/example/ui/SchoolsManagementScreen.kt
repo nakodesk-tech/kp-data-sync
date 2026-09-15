@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -145,7 +147,7 @@ fun SchoolsTabContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 18.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 18.dp)
         ) {
             item {
                 Row(
@@ -508,50 +510,52 @@ private fun SchoolCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(21.dp),
+        shape = RoundedCornerShape(16.dp),
         color = Color.White,
         tonalElevation = 1.dp
     ) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(if (school.isActive) Color(0xFFF2E8FF) else Color(0xFFEFF2FF)),
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (school.isActive) Color(0xFFEDE7F6) else Color(0xFFDBEAFE)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.School,
                         contentDescription = null,
                         tint = if (school.isActive) Color(0xFF5B18C9) else Color(0xFF1D4ED8),
-                        modifier = Modifier.size(35.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
-                Spacer(Modifier.width(13.dp))
+                Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         school.schoolName,
-                        fontSize = 13.sp,
-                        lineHeight = 16.sp,
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
                         fontWeight = FontWeight.Black,
                         color = SchoolText,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(3.dp))
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (school.isActive) GreenSoft else Color(0xFFE9EBEF)
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (school.isActive) GreenSoft else Color(0xFFF1F3F5)
                     ) {
                         Text(
                             if (school.isActive) "सक्रिय" else "निष्क्रिय",
-                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp),
-                            fontSize = 8.sp,
-                            lineHeight = 10.sp,
-                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
                             color = if (school.isActive) Color(0xFF138A5B) else Color(0xFF56616F)
                         )
                     }
@@ -560,13 +564,13 @@ private fun SchoolCard(
                 Box {
                     IconButton(
                         onClick = { menuOpen = true },
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "More actions",
                             tint = SchoolSecondary,
-                            modifier = Modifier.size(27.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     DropdownMenu(
@@ -602,129 +606,170 @@ private fun SchoolCard(
 
             Spacer(Modifier.height(10.dp))
 
-            SchoolInfoLine(Icons.Default.Description, "UDISE:", school.udiseCode)
-            Spacer(Modifier.height(7.dp))
-            SchoolInfoLine(Icons.Default.LocationOn, "केंद्र:", school.clusterName)
-            Spacer(Modifier.height(7.dp))
-            if (school.hmName.isNotBlank()) {
-                SchoolInfoLine(Icons.Default.Person, "मुख्याध्यापक:", "${school.hmName} ${school.hmMobile}")
-            }
-
-            if (canManage) {
-                Spacer(Modifier.height(11.dp))
-                HorizontalDivider(color = Color(0xFFE8E9ED))
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SchoolActionButton(
-                        text = "संपादित",
-                        icon = Icons.Default.Edit,
-                        modifier = Modifier.weight(1f),
-                        enabled = !busy,
-                        container = PurpleSoft,
-                        content = HighDensityPrimary,
-                        onClick = edit
-                    )
-
-                    Row(
-                        modifier = Modifier.weight(1.15f),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Switch(
-                            checked = school.isActive,
-                            onCheckedChange = { if (!busy) toggle() },
-                            enabled = !busy,
-                            modifier = Modifier.size(width = 54.dp, height = 34.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Description,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(15.dp)
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(5.dp))
                         Text(
-                            if (school.isActive) "सक्रिय" else "निष्क्रिय",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
-                            color = SchoolText
+                            "UDISE: ${school.udiseCode}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF334155)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp)
+                                .width(1.dp)
+                                .height(12.dp)
+                                .background(Color(0xFFCBD5E1))
+                        )
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "केंद्र: ${school.clusterName}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF334155),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    SchoolActionButton(
-                        text = "हटवा",
-                        icon = Icons.Default.DeleteOutline,
-                        modifier = Modifier.weight(1f),
-                        enabled = !busy,
-                        container = RedSoft,
-                        content = Red,
-                        onClick = delete
+                    Spacer(Modifier.height(5.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            "मुख्याध्यापक: ${school.hmName.ifBlank { "—" }} ${school.hmMobile}".trim(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF334155),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                if (canManage) {
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .width(1.dp)
+                            .height(40.dp)
+                            .background(Color(0xFFE2E8F0))
                     )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            onClick = edit,
+                            enabled = !busy,
+                            modifier = Modifier.size(width = 46.dp, height = 46.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = PurpleSoft
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = HighDensityPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "संपादित",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = HighDensityPrimary
+                                )
+                            }
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Switch(
+                                checked = school.isActive,
+                                onCheckedChange = { if (!busy) toggle() },
+                                enabled = !busy,
+                                modifier = Modifier
+                                    .scale(0.72f)
+                                    .height(24.dp),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF159A62),
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color(0xFF94A3B8),
+                                    checkedBorderColor = Color.Transparent,
+                                    uncheckedBorderColor = Color.Transparent
+                                )
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                if (school.isActive) "सक्रिय" else "निष्क्रिय",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SchoolText
+                            )
+                        }
+
+                        Surface(
+                            onClick = delete,
+                            enabled = !busy,
+                            modifier = Modifier.size(width = 46.dp, height = 46.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = RedSoft
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.DeleteOutline,
+                                    contentDescription = null,
+                                    tint = Red,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    "हटवा",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Red
+                                )
+                            }
+                        }
+                    }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SchoolInfoLine(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = SchoolSecondary,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            label,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Black,
-            color = SchoolSecondary
-        )
-        Spacer(Modifier.width(5.dp))
-        Text(
-            value,
-            modifier = Modifier.weight(1f),
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium,
-            color = SchoolSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun SchoolActionButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    modifier: Modifier,
-    enabled: Boolean,
-    container: Color,
-    content: Color,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(48.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = container
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(text, fontSize = 10.sp, fontWeight = FontWeight.Black, color = content, maxLines = 1)
         }
     }
 }
