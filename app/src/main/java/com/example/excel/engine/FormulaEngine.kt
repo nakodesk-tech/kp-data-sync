@@ -1,15 +1,21 @@
 package com.example.excel.engine
 
+import kotlin.math.pow
+import kotlin.math.round
+
 /**
- * Small, deterministic formula evaluator for the engine prototype.
+ * Small deterministic formula evaluator for the engine prototype.
  * Unsupported functions return an explicit #NAME? error instead of a fake value.
  */
 class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
-    fun evaluate(sheetName: String, expression: String): CellValue {
-        val context = EvaluationContext(sheetName)
-        return try {
-            val parser = Parser(expression.removePrefix("="), context)
-            CellValue.Number(parser.parseExpression())
+    fun evaluate(sheetName: String, expression: String): CellValue =
+        EvaluationContext().evaluate(sheetName, expression)
+
+    private inner class EvaluationContext {
+        private val stack = mutableSetOf<Pair<String, CellAddress>>()
+
+        fun evaluate(sheetName: String, expression: String): CellValue = try {
+            CellValue.Number(Parser(expression.removePrefix("="), this).parseExpression())
         } catch (e: FormulaException) {
             CellValue.Error(e.code)
         } catch (_: ArithmeticException) {
@@ -17,10 +23,6 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
         } catch (_: Exception) {
             CellValue.Error("#VALUE!")
         }
-    }
-
-    private inner class EvaluationContext(private val defaultSheet: String) {
-        private val stack = mutableSetOf<Pair<String, CellAddress>>()
 
         fun number(sheetName: String, address: CellAddress): Double {
             val key = sheetName to address
@@ -34,20 +36,27 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
                     is CellValue.Formula -> evaluate(sheetName, value.expression).asNumber()
                     is CellValue.Error -> throw FormulaException(value.code)
                 }
-            } finally { stack.remove(key) }
+            } finally {
+                stack.remove(key)
+            }
         }
 
-        fun range(sheetName: String, range: CellRange): List<Double> = range.addresses().map { number(sheetName, it) }.toList()
-        fun sheet(name: String): SpreadsheetSheet? = sheetProvider(name)
-        fun defaultSheet(): String = defaultSheet
+        fun range(sheetName: String, range: CellRange): List<Double> =
+            range.addresses().map { number(sheetName, it) }.toList()
     }
 
-    private fun CellValue.asNumber(): Double = (this as? CellValue.Number)?.value
-        ?: throw FormulaException((this as? CellValue.Error)?.code ?: "#VALUE!")
+    private fun CellValue.asNumber(): Double = when (this) {
+        is CellValue.Number -> value
+        is CellValue.Error -> throw FormulaException(code)
+        else -> throw FormulaException("#VALUE!")
+    }
 
     private class FormulaException(val code: String) : RuntimeException()
 
-    private inner class Parser(private val input: String, private val context: EvaluationContext) {
+    private inner class Parser(
+        private val input: String,
+        private val context: EvaluationContext
+    ) {
         private var pos = 0
 
         fun parseExpression(): Double {
@@ -108,10 +117,9 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
         }
 
         private fun parsePower(): Double {
-            var value = parseUnary()
+            val value = parseUnary()
             skipSpaces()
-            if (consume('^')) value = value.pow(parsePower())
-            return value
+            return if (consume('^')) value.pow(parsePower()) else value
         }
 
         private fun parseUnary(): Double {
@@ -130,7 +138,7 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
                 requireConsume(')')
                 return value
             }
-            if (pos < input.length && input[pos].isDigit() || pos < input.length && input[pos] == '.') return parseNumber()
+            if (pos < input.length && (input[pos].isDigit() || input[pos] == '.')) return parseNumber()
             val token = parseIdentifier()
             if (token.isEmpty()) throw FormulaException("#VALUE!")
             skipSpaces()
@@ -148,14 +156,12 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
                     val start = pos
                     val identifier = parseIdentifier()
                     skipSpaces()
-                    if (identifier.isNotEmpty() && (peek(':') || identifier.contains('!'))) {
+                    if (identifier.isNotEmpty() && peek(':')) {
                         val ref = parseReference(identifier)
-                        if (consume(':')) {
-                            val endToken = parseIdentifier()
-                            val end = parseReference(endToken)
-                            if (ref.first != end.first) throw FormulaException("#REF!")
-                            ranges += context.range(ref.first, CellRange(ref.second, end.second))
-                        } else args += context.number(ref.first, ref.second)
+                        consume(':')
+                        val end = parseReference(parseIdentifier())
+                        if (ref.first != end.first) throw FormulaException("#REF!")
+                        ranges += context.range(ref.first, CellRange(ref.second, end.second))
                     } else {
                         pos = start
                         args += parseComparison()
@@ -165,16 +171,18 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
                     requireConsume(',')
                 }
             }
+            val all = args + ranges.flatten()
             return when (name.uppercase()) {
-                "SUM" -> args.sum() + ranges.flatten().sum()
-                "AVERAGE" -> (args + ranges.flatten()).averageOrError()
-                "MIN" -> (args + ranges.flatten()).minOrError()
-                "MAX" -> (args + ranges.flatten()).maxOrError()
-                "COUNT" -> (args + ranges.flatten()).size.toDouble()
+                "SUM" -> all.sum()
+                "AVERAGE" -> all.averageOrError()
+                "MIN" -> all.minOrError()
+                "MAX" -> all.maxOrError()
+                "COUNT" -> all.size.toDouble()
                 "ROUND" -> {
+                    val value = args.getOrNull(0) ?: throw FormulaException("#VALUE!")
                     val digits = args.getOrNull(1)?.toInt() ?: 0
                     val factor = 10.0.pow(digits)
-                    kotlin.math.round(args.firstOrNull() ?: 0.0 * factor) / factor
+                    round(value * factor) / factor
                 }
                 "IF" -> if ((args.getOrNull(0) ?: 0.0) != 0.0) args.getOrNull(1) ?: 0.0 else args.getOrNull(2) ?: 0.0
                 "AND" -> if (args.all { it != 0.0 }) 1.0 else 0.0
@@ -196,14 +204,14 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
         private fun parseIdentifier(): String {
             skipSpaces()
             val start = pos
-            while (pos < input.length && (input[pos].isLetterOrDigit() || input[pos] == '_' || input[pos] == '!' || input[pos] == '$' || input[pos] == '.')) pos++
+            while (pos < input.length && (input[pos].isLetterOrDigit() || input[pos] == '_' || input[pos] == '!' || input[pos] == '$' || input[pos] == '.' || input[pos] == '\'' || input[pos] == '"')) pos++
             return input.substring(start, pos).replace("$", "")
         }
 
         private fun parseReference(token: String): Pair<String, CellAddress> {
             val parts = token.split('!', limit = 2)
             return if (parts.size == 2) parts[0].trim('"', '\'') to CellAddress.parse(parts[1])
-            else context.defaultSheet() to CellAddress.parse(token)
+            else "Sheet1" to CellAddress.parse(token)
         }
 
         private fun skipSpaces() { while (pos < input.length && input[pos].isWhitespace()) pos++ }
@@ -211,6 +219,4 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
         private fun consume(c: Char): Boolean { skipSpaces(); return if (pos < input.length && input[pos] == c) { pos++; true } else false }
         private fun requireConsume(c: Char) { if (!consume(c)) throw FormulaException("#VALUE!") }
     }
-
-    private fun Double.pow(other: Double): Double = kotlin.math.pow(this, other)
 }
