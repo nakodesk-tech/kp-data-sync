@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -105,13 +107,21 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
   }
 
   if (showEditor && isXlsx && !localPublished) {
-    Dialog(onDismissRequest = { if (!busy) showEditor = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
+    Dialog(
+      onDismissRequest = { if (!busy) showEditor = false },
+      properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
       val view = LocalView.current
-      SideEffect { (view.parent as? DialogWindowProvider)?.window?.let { WindowCompat.setDecorFitsSystemWindows(it, false) } }
-      Surface(Modifier.fillMaxSize(), color = Color.White) {
-        Box(Modifier.fillMaxSize()) {
-          InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
+      DisposableEffect(view) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        if (window != null) {
+          window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+          window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
+        onDispose {}
+      }
+      Surface(Modifier.fillMaxSize(), color = Color.White) {
+        InAppExcelEditorScreen(message, token, canPublish, { if (!busy) showEditor = false }, { showEditor = false; localPublished = true; notice = "ही फाइल Reports मध्ये प्रकाशित झाली." })
       }
     }
   }
@@ -152,20 +162,28 @@ fun ReportEditAction(report: ExcelReport, token: String, enabled: Boolean, onSav
   var editorWorkbook by remember(report.id) { mutableStateOf<InAppXlsxWorkbook?>(null) }
 
   if (showEditor && editorWorkbook != null) {
-    Dialog(onDismissRequest = { if (!busy) showEditor = false }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnBackPress = false, dismissOnClickOutside = false)) {
+    Dialog(
+      onDismissRequest = { if (!busy) showEditor = false },
+      properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
       val view = LocalView.current
-      SideEffect { (view.parent as? DialogWindowProvider)?.window?.let { WindowCompat.setDecorFitsSystemWindows(it, false) } }
-      Surface(Modifier.fillMaxSize(), color = Color.White) {
-        Box(Modifier.fillMaxSize()) {
-          InAppExcelEditorV2Screen(workbook = editorWorkbook!!, fileName = report.fileName, onBack = { if (!busy) showEditor = false }, onSaved = { file ->
-            busy = true
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            RealtimeMessageApi.saveExcel(context, token, report.groupId, report.id, uri, report.version,
-              onSuccess = { version, _ -> busy = false; file.delete(); showEditor = false; onSaved(version) },
-              onError = { busy = false; file.delete(); onError(it) }
-            )
-          })
+      DisposableEffect(view) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        if (window != null) {
+          window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+          window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
+        onDispose {}
+      }
+      Surface(Modifier.fillMaxSize(), color = Color.White) {
+        InAppExcelEditorV2Screen(workbook = editorWorkbook!!, fileName = report.fileName, onBack = { if (!busy) showEditor = false }, onSaved = { file ->
+          busy = true
+          val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+          RealtimeMessageApi.saveExcel(context, token, report.groupId, report.id, uri, report.version,
+            onSuccess = { version, _ -> busy = false; file.delete(); showEditor = false; onSaved(version) },
+            onError = { busy = false; file.delete(); onError(it) }
+          )
+        })
       }
     }
   }

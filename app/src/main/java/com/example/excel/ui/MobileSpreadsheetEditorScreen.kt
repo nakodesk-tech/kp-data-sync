@@ -254,23 +254,23 @@ internal fun MobileSpreadsheetEditorScreen(
 
     val activeStyle = sheet.cell(active).style
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize().imePadding(),
-        topBar = {
-            Column(Modifier.fillMaxWidth()) {
-                // 1. Compact App Bar
-                Surface(
-                    color = ExcelGreen,
-                    shadowElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .height(52.dp)
-                            .padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+    ) {
+        // 1. Compact App Bar
+        Surface(
+            color = ExcelGreen,
+            shadowElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                         IconButton(onClick = { finish(); onBack() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -531,167 +531,12 @@ internal fun MobileSpreadsheetEditorScreen(
                         }
                     }
                 }
-            }
-        },
-        bottomBar = {
-            // Pinned Bottom Section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-            ) {
-                // 5. Sheet Tabs (Bottom)
-                Surface(
-                    color = Color(0xFFF1F5F9),
-                    border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(38.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { showSheetManager = true },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Sheets Menu",
-                                tint = Color(0xFF334155),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
 
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            workbook.sheets.forEachIndexed { idx, sh ->
-                                val isActiveTab = idx == safeSheetIndex
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .background(if (isActiveTab) Color.White else Color(0xFFF1F5F9))
-                                        .combinedClickable(
-                                            onClick = {
-                                                finish()
-                                                sheetIndex = idx
-                                                active = CellAddress(0, 0)
-                                                anchor = active
-                                                selection = CellRange(active, active)
-                                                text = raw(workbook.sheets[idx].valueAt(active))
-                                                refresh++
-                                            },
-                                            onLongClick = {
-                                                renameTargetSheetIndex = idx
-                                            }
-                                        )
-                                        .padding(horizontal = 14.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = sh.name,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isActiveTab) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isActiveTab) ExcelGreen else Color(0xFF64748B)
-                                    )
-                                    if (isActiveTab) {
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomCenter)
-                                                .fillMaxWidth()
-                                                .height(2.5.dp)
-                                                .background(ExcelGreen)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        IconButton(
-                            onClick = {
-                                finish()
-                                workbook.addSheet()
-                                sheetIndex = workbook.sheets.lastIndex
-                                refresh++
-                            },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Sheet",
-                                tint = ExcelGreen,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-
-                // 6. Bottom Toolbar (Essential)
-                Surface(
-                    color = Color.White,
-                    shadowElevation = 4.dp,
-                    border = BorderStroke(1.dp, ExcelGridBorder)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        BottomToolItem(
-                            icon = Icons.Default.FormatBold,
-                            label = "Bold",
-                            active = activeStyle.bold,
-                            onClick = { style { it.copy(bold = !it.bold) } }
-                        )
-                        BottomToolItem(
-                            icon = Icons.Default.FormatColorText,
-                            label = "Font",
-                            active = false,
-                            onClick = { showFontSheet = true }
-                        )
-                        BottomToolItem(
-                            icon = Icons.Default.FormatColorFill,
-                            label = "Fill",
-                            active = activeStyle.fillArgb != null,
-                            onClick = { showFillSheet = true }
-                        )
-                        BottomToolItem(
-                            icon = Icons.AutoMirrored.Filled.CallMerge,
-                            label = "Merge",
-                            active = activeStyle.wrapText,
-                            onClick = { mergeOrWrap() }
-                        )
-                        BottomToolItem(
-                            icon = Icons.Default.GridView,
-                            label = "Tools",
-                            active = false,
-                            onClick = { showToolsSheet = true }
-                        )
-                        BottomToolItem(
-                            icon = Icons.Default.Keyboard,
-                            label = "Keyboard",
-                            active = editing,
-                            onClick = {
-                                startEdit(active)
-                                formulaInputFocus.requestFocus()
-                                keyboard?.show()
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    ) { innerPadding ->
-        // 4. Maximum Sheet Space
+        // 3. Maximum Sheet Space
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+                .fillMaxWidth()
+                .weight(1f)
         ) {
             Column(Modifier.fillMaxSize()) {
                 // Column Headers
@@ -950,6 +795,151 @@ internal fun MobileSpreadsheetEditorScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // 4. Sheet Tabs (Bottom)
+        Surface(
+            color = Color(0xFFF1F5F9),
+            border = BorderStroke(0.5.dp, Color(0xFFCBD5E1))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { showSheetManager = true },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Sheets Menu",
+                        tint = Color(0xFF334155),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    workbook.sheets.forEachIndexed { idx, sh ->
+                        val isActiveTab = idx == safeSheetIndex
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .background(if (isActiveTab) Color.White else Color(0xFFF1F5F9))
+                                .combinedClickable(
+                                    onClick = {
+                                        finish()
+                                        sheetIndex = idx
+                                        active = CellAddress(0, 0)
+                                        anchor = active
+                                        selection = CellRange(active, active)
+                                        text = raw(workbook.sheets[idx].valueAt(active))
+                                        refresh++
+                                    },
+                                    onLongClick = {
+                                        renameTargetSheetIndex = idx
+                                    }
+                                )
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = sh.name,
+                                fontSize = 12.sp,
+                                fontWeight = if (isActiveTab) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isActiveTab) ExcelGreen else Color(0xFF64748B)
+                            )
+                            if (isActiveTab) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .height(2.5.dp)
+                                        .background(ExcelGreen)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                IconButton(
+                    onClick = {
+                        finish()
+                        workbook.addSheet()
+                        sheetIndex = workbook.sheets.lastIndex
+                        refresh++
+                    },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Sheet",
+                        tint = ExcelGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // 5. Bottom Toolbar (Essential)
+        Surface(
+            color = Color.White,
+            shadowElevation = 4.dp,
+            border = BorderStroke(1.dp, ExcelGridBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BottomToolItem(
+                    icon = Icons.Default.FormatBold,
+                    label = "Bold",
+                    active = activeStyle.bold,
+                    onClick = { style { it.copy(bold = !it.bold) } }
+                )
+                BottomToolItem(
+                    icon = Icons.Default.FormatColorText,
+                    label = "Font",
+                    active = false,
+                    onClick = { showFontSheet = true }
+                )
+                BottomToolItem(
+                    icon = Icons.Default.FormatColorFill,
+                    label = "Fill",
+                    active = activeStyle.fillArgb != null,
+                    onClick = { showFillSheet = true }
+                )
+                BottomToolItem(
+                    icon = Icons.AutoMirrored.Filled.CallMerge,
+                    label = "Merge",
+                    active = activeStyle.wrapText,
+                    onClick = { mergeOrWrap() }
+                )
+                BottomToolItem(
+                    icon = Icons.Default.GridView,
+                    label = "Tools",
+                    active = false,
+                    onClick = { showToolsSheet = true }
+                )
+                BottomToolItem(
+                    icon = Icons.Default.Keyboard,
+                    label = "Keyboard",
+                    active = editing,
+                    onClick = {
+                        startEdit(active)
+                        formulaInputFocus.requestFocus()
+                        keyboard?.show()
+                    }
+                )
             }
         }
     }
