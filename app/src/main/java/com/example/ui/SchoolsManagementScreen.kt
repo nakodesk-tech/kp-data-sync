@@ -168,6 +168,7 @@ fun SchoolsTabContent(
                             color = SchoolSecondary
                         )
                     }
+
                     Surface(
                         modifier = Modifier.size(width = 108.dp, height = 96.dp),
                         shape = RoundedCornerShape(20.dp),
@@ -194,7 +195,10 @@ fun SchoolsTabContent(
                         }
                     }
                     Spacer(Modifier.width(8.dp))
-                    IconButton(onClick = { reload() }, modifier = Modifier.size(46.dp)) {
+                    IconButton(
+                        onClick = { reload() },
+                        modifier = Modifier.size(46.dp)
+                    ) {
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Refresh",
@@ -243,8 +247,10 @@ fun SchoolsTabContent(
                                 )
                                 Spacer(Modifier.height(3.dp))
                                 Text(
-                                    if (userRole == UserRole.Cluster_Head) "आपल्या केंद्रातील नवीन शाळा नोंदवा."
-                                    else "UDISE, केंद्र व शाळेची माहिती सुरक्षितपणे जतन करा.",
+                                    if (userRole == UserRole.Cluster_Head)
+                                        "आपल्या केंद्रातील नवीन शाळा नोंदवा."
+                                    else
+                                        "UDISE, केंद्र व शाळेची माहिती सुरक्षितपणे जतन करा.",
                                     fontSize = 12.sp,
                                     lineHeight = 16.sp,
                                     fontWeight = FontWeight.Medium,
@@ -273,7 +279,12 @@ fun SchoolsTabContent(
                     tonalElevation = 0.dp
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
-                        Text("शाळा शोधा", fontSize = 13.sp, fontWeight = FontWeight.Black, color = SchoolSecondary)
+                        Text(
+                            "शाळा शोधा",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            color = SchoolSecondary
+                        )
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
                             value = search,
@@ -294,11 +305,18 @@ fun SchoolsTabContent(
                                 )
                             },
                             leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = null, tint = SchoolSecondary, modifier = Modifier.size(29.dp))
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = SchoolSecondary,
+                                    modifier = Modifier.size(29.dp)
+                                )
                             },
                             trailingIcon = {
                                 if (search.isNotEmpty()) {
-                                    IconButton(onClick = { search = "" }) { Icon(Icons.Default.Clear, "Clear") }
+                                    IconButton(onClick = { search = "" }) {
+                                        Icon(Icons.Default.Clear, "Clear")
+                                    }
                                 }
                             }
                         )
@@ -311,9 +329,27 @@ fun SchoolsTabContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    SchoolFilterChip(filter == "all", "सर्व ${records.size}", GreenSoft, { filter = "all" }, Modifier.weight(1f))
-                    SchoolFilterChip(filter == "active", "सक्रिय ${records.count { it.isActive }}", Color.White, { filter = "active" }, Modifier.weight(1f))
-                    SchoolFilterChip(filter == "inactive", "निष्क्रिय ${records.count { !it.isActive }}", Color.White, { filter = "inactive" }, Modifier.weight(1f))
+                    SchoolFilterChip(
+                        selected = filter == "all",
+                        text = "सर्व ${records.size}",
+                        selectedColor = GreenSoft,
+                        onClick = { filter = "all" },
+                        modifier = Modifier.weight(1f)
+                    )
+                    SchoolFilterChip(
+                        selected = filter == "active",
+                        text = "सक्रिय ${records.count { it.isActive }}",
+                        selectedColor = Color.White,
+                        onClick = { filter = "active" },
+                        modifier = Modifier.weight(1f)
+                    )
+                    SchoolFilterChip(
+                        selected = filter == "inactive",
+                        text = "निष्क्रिय ${records.count { !it.isActive }}",
+                        selectedColor = Color.White,
+                        onClick = { filter = "inactive" },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
@@ -330,21 +366,44 @@ fun SchoolsTabContent(
 
             if (loading) {
                 item {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = HighDensityPrimary)
-                    }
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(color = HighDensityPrimary) }
                 }
             } else if (error != null) {
                 item {
-                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(16.dp), color = Color.White) {
-                        Text(error.orEmpty(), Modifier.padding(18.dp), color = Red, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White
+                    ) {
+                        Text(
+                            error.orEmpty(),
+                            modifier = Modifier.padding(18.dp),
+                            color = Red,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             } else if (filtered.isEmpty()) {
                 item {
-                    Surface(Modifier.fillMaxWidth(), RoundedCornerShape(20.dp), color = Color.White) {
-                        Column(Modifier.padding(30.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.School, null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(44.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(30.dp).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.School,
+                                contentDescription = null,
+                                tint = Color(0xFF9CA3AF),
+                                modifier = Modifier.size(44.dp)
+                            )
                             Spacer(Modifier.height(8.dp))
                             Text("शाळा सापडली नाही", fontWeight = FontWeight.Bold, color = SchoolText)
                         }
@@ -374,22 +433,36 @@ fun SchoolsTabContent(
     }
 
     editing?.let { school ->
-        SchoolEditDialog(school, { editing = null; reload() }, { editing = null })
+        SchoolEditDialog(
+            school,
+            { editing = null; reload() },
+            { editing = null }
+        )
     }
 
     deleting?.let { school ->
         AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("शाळा हटवायची आहे?") },
-            text = { Text("‘${school.schoolName}’ ही नोंद हटवली जाईल. संबंधित वापरकर्ते असल्यास delete नाकारले जाईल.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    busy = school.id
-                    BackendApi.deleteSchool(school.id, { busy = null; reload() }, { busy = null; error = it })
-                }) { Text("हटवा", color = Red) }
+            text = {
+                Text("‘${school.schoolName}’ ही नोंद हटवली जाईल. संबंधित वापरकर्ते असल्यास delete नाकारले जाईल.")
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("रद्द करा") } }
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        deleting = null
+                        busy = school.id
+                        BackendApi.deleteSchool(
+                            school.id,
+                            { busy = null; reload() },
+                            { busy = null; error = it }
+                        )
+                    }
+                ) { Text("हटवा", color = Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleting = null }) { Text("रद्द करा") }
+            }
         )
     }
 }
@@ -485,10 +558,21 @@ private fun SchoolCard(
                 }
 
                 Box {
-                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(38.dp)) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More actions", tint = SchoolSecondary, modifier = Modifier.size(27.dp))
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            contentDescription = "More actions",
+                            tint = SchoolSecondary,
+                            modifier = Modifier.size(27.dp)
+                        )
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false }
+                    ) {
                         if (canManage) {
                             DropdownMenuItem(
                                 text = { Text("संपादित करा") },
@@ -517,6 +601,7 @@ private fun SchoolCard(
             }
 
             Spacer(Modifier.height(10.dp))
+
             SchoolInfoLine(Icons.Default.Description, "UDISE:", school.udiseCode)
             Spacer(Modifier.height(7.dp))
             SchoolInfoLine(Icons.Default.LocationOn, "केंद्र:", school.clusterName)
@@ -543,6 +628,7 @@ private fun SchoolCard(
                         content = HighDensityPrimary,
                         onClick = edit
                     )
+
                     Row(
                         modifier = Modifier.weight(1.15f),
                         horizontalArrangement = Arrangement.Center,
@@ -562,6 +648,7 @@ private fun SchoolCard(
                             color = SchoolText
                         )
                     }
+
                     SchoolActionButton(
                         text = "हटवा",
                         icon = Icons.Default.DeleteOutline,
@@ -583,10 +670,23 @@ private fun SchoolInfoLine(
     label: String,
     value: String
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = SchoolSecondary, modifier = Modifier.size(22.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = SchoolSecondary,
+            modifier = Modifier.size(22.dp)
+        )
         Spacer(Modifier.width(12.dp))
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Black, color = SchoolSecondary)
+        Text(
+            label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Black,
+            color = SchoolSecondary
+        )
         Spacer(Modifier.width(5.dp))
         Text(
             value,
