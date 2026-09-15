@@ -109,7 +109,12 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
   if (showEditor && isXlsx && !localPublished) {
     Dialog(
       onDismissRequest = { if (!busy) showEditor = false },
-      properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+      properties = DialogProperties(
+        usePlatformDefaultWidth = false,
+        decorFitsSystemWindows = false,
+        dismissOnBackPress = false,
+        dismissOnClickOutside = false
+      )
     ) {
       val view = LocalView.current
       DisposableEffect(view) {
@@ -117,6 +122,11 @@ fun GroupFileActions(message: GroupMessage, token: String, canPublish: Boolean, 
         if (window != null) {
           window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
           window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+          window.statusBarColor = android.graphics.Color.TRANSPARENT
+          window.navigationBarColor = android.graphics.Color.TRANSPARENT
+          window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+          window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+          WindowCompat.setDecorFitsSystemWindows(window, false)
         }
         onDispose {}
       }
@@ -164,7 +174,12 @@ fun ReportEditAction(report: ExcelReport, token: String, enabled: Boolean, onSav
   if (showEditor && editorWorkbook != null) {
     Dialog(
       onDismissRequest = { if (!busy) showEditor = false },
-      properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+      properties = DialogProperties(
+        usePlatformDefaultWidth = false,
+        decorFitsSystemWindows = false,
+        dismissOnBackPress = false,
+        dismissOnClickOutside = false
+      )
     ) {
       val view = LocalView.current
       DisposableEffect(view) {
@@ -172,6 +187,11 @@ fun ReportEditAction(report: ExcelReport, token: String, enabled: Boolean, onSav
         if (window != null) {
           window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
           window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+          window.statusBarColor = android.graphics.Color.TRANSPARENT
+          window.navigationBarColor = android.graphics.Color.TRANSPARENT
+          window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+          window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+          WindowCompat.setDecorFitsSystemWindows(window, false)
         }
         onDispose {}
       }

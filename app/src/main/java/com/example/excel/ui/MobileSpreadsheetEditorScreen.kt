@@ -255,9 +255,7 @@ internal fun MobileSpreadsheetEditorScreen(
     val activeStyle = sheet.cell(active).style
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
+        modifier = Modifier.fillMaxSize()
     ) {
         // 1. Compact App Bar
         Surface(
