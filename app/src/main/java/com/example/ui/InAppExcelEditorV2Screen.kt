@@ -1,9 +1,9 @@
 package com.example.ui
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import com.example.excel.engine.SpreadsheetWorkbook
-import com.example.excel.ui.SpreadsheetEditorScreen
+import com.example.excel.ui.MobileSpreadsheetEditorScreen
 import java.io.File
 
 @Composable
@@ -14,7 +14,7 @@ internal fun InAppExcelEditorV2Screen(
 ) {
     val context = LocalContext.current
     val engine = remember(workbook) { workbook.toSpreadsheetWorkbook() }
-    SpreadsheetEditorScreen(
+    MobileSpreadsheetEditorScreen(
         workbook = engine,
         onBack = onBack,
         onSave = {
