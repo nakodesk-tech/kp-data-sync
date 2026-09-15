@@ -42,7 +42,7 @@ class SpreadsheetSheet(var name: String) {
     fun valueAt(address: CellAddress): CellValue = cells[address]?.value ?: CellValue.Empty
     fun setValue(address: CellAddress, value: CellValue) { if (value is CellValue.Empty) cells.remove(address) else cell(address).value = value }
     fun clear(range: CellRange) { cells.keys.removeIf(range::contains) }
-    fun cellsIn(range: CellRange): Sequence<Pair<CellAddress, SpreadsheetCell>> = cells.asSequence().filter { range.contains(it.key) }
+    fun cellsIn(range: CellRange): Sequence<Pair<CellAddress, SpreadsheetCell>> = cells.asSequence().filter { range.contains(it.key) }.map { it.key to it.value }
 
     fun insertRow(row: Int) { require(row >= 0); shiftCells { a -> if (a.row >= row) a.copy(row = a.row + 1) else a } }
 

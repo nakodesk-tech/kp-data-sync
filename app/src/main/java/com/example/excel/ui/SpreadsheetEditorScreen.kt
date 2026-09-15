@@ -108,7 +108,7 @@ fun SpreadsheetEditorScreen(
 
     fun copySelection() {
         copied = selection.addresses().map { address ->
-            listOf(SpreadsheetCellSnapshot(sheet.valueAt(address), sheet.cell(address).style))
+            SpreadsheetCellSnapshot(sheet.valueAt(address), sheet.cell(address).style)
         }.toList().chunked(selection.columnCount)
     }
 
