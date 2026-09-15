@@ -79,6 +79,8 @@ class SpreadsheetSheet(var name: String) {
     fun merge(range: CellRange) { require(!range.isSingleCell); mergedRanges += range }
     fun unmerge(range: CellRange) { mergedRanges.removeIf { it.intersects(range) } }
     fun mergedRanges(): Set<CellRange> = mergedRanges.toSet()
+    fun maxRow(): Int = cells.keys.maxOfOrNull { it.row } ?: 0
+    fun maxColumn(): Int = cells.keys.maxOfOrNull { it.column } ?: 0
 
     private fun shiftCells(transform: (CellAddress) -> CellAddress) {
         val copy = cells.entries.map { transform(it.key) to it.value }

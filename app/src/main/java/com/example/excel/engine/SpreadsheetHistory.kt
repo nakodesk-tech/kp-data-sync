@@ -78,3 +78,57 @@ class ClearRangeCommand(
         }
     }
 }
+
+class StyleRangeCommand(
+    private val sheet: SpreadsheetSheet,
+    private val range: CellRange,
+    private val transform: (CellStyle) -> CellStyle,
+    override val description: String = "Format $range"
+) : SpreadsheetCommand {
+    private val backup = mutableMapOf<CellAddress, CellStyle>()
+    private var captured = false
+
+    override fun execute() {
+        if (!captured) {
+            range.addresses().forEach { address -> backup[address] = sheet.cell(address).style }
+            captured = true
+        }
+        range.addresses().forEach { address ->
+            sheet.cell(address).style = transform(sheet.cell(address).style)
+        }
+    }
+
+    override fun undo() {
+        backup.forEach { (address, style) -> sheet.cell(address).style = style }
+    }
+}
+
+class BatchEditCommand(
+    private val sheet: SpreadsheetSheet,
+    private val edits: List<Pair<CellAddress, Pair<CellValue, CellStyle?>>>,
+    override val description: String = "Batch edit"
+) : SpreadsheetCommand {
+    private val backup = mutableMapOf<CellAddress, Pair<CellValue, CellStyle>>()
+    private var captured = false
+
+    override fun execute() {
+        if (!captured) {
+            edits.forEach { (address, _) ->
+                backup[address] = sheet.valueAt(address) to sheet.cell(address).style
+            }
+            captured = true
+        }
+        edits.forEach { (address, pair) ->
+            sheet.setValue(address, pair.first)
+            pair.second?.let { sheet.cell(address).style = it }
+        }
+    }
+
+    override fun undo() {
+        backup.forEach { (address, pair) ->
+            sheet.setValue(address, pair.first)
+            sheet.cell(address).style = pair.second
+        }
+    }
+}
+

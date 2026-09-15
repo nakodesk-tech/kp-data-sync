@@ -15,7 +15,7 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
         private val stack = mutableSetOf<Pair<String, CellAddress>>()
 
         fun evaluate(sheetName: String, expression: String): CellValue = try {
-            CellValue.Number(Parser(expression.removePrefix("="), this).parseExpression())
+            CellValue.Number(Parser(sheetName, expression.removePrefix("="), this).parseExpression())
         } catch (e: FormulaException) {
             CellValue.Error(e.code)
         } catch (_: ArithmeticException) {
@@ -54,6 +54,7 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
     private class FormulaException(val code: String) : RuntimeException()
 
     private inner class Parser(
+        private val currentSheet: String,
         private val input: String,
         private val context: EvaluationContext
     ) {
@@ -211,7 +212,7 @@ class FormulaEngine(private val sheetProvider: (String) -> SpreadsheetSheet?) {
         private fun parseReference(token: String): Pair<String, CellAddress> {
             val parts = token.split('!', limit = 2)
             return if (parts.size == 2) parts[0].trim('"', '\'') to CellAddress.parse(parts[1])
-            else "Sheet1" to CellAddress.parse(token)
+            else currentSheet to CellAddress.parse(token)
         }
 
         private fun skipSpaces() { while (pos < input.length && input[pos].isWhitespace()) pos++ }
