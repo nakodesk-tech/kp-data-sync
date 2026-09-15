@@ -534,8 +534,8 @@ private fun SchoolCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         school.schoolName,
-                        fontSize = 15.sp,
-                        lineHeight = 19.sp,
+                        fontSize = 13.sp,
+                        lineHeight = 16.sp,
                         fontWeight = FontWeight.Black,
                         color = SchoolText,
                         maxLines = 2,
@@ -549,8 +549,8 @@ private fun SchoolCard(
                         Text(
                             if (school.isActive) "सक्रिय" else "निष्क्रिय",
                             modifier = Modifier.padding(horizontal = 13.dp, vertical = 4.dp),
-                            fontSize = 9.sp,
-                            lineHeight = 11.sp,
+                            fontSize = 8.sp,
+                            lineHeight = 10.sp,
                             fontWeight = FontWeight.Black,
                             color = if (school.isActive) Color(0xFF138A5B) else Color(0xFF56616F)
                         )
@@ -643,7 +643,7 @@ private fun SchoolCard(
                         Spacer(Modifier.width(6.dp))
                         Text(
                             if (school.isActive) "सक्रिय" else "निष्क्रिय",
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Black,
                             color = SchoolText
                         )
@@ -683,7 +683,7 @@ private fun SchoolInfoLine(
         Spacer(Modifier.width(12.dp))
         Text(
             label,
-            fontSize = 11.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.Black,
             color = SchoolSecondary
         )
@@ -691,7 +691,7 @@ private fun SchoolInfoLine(
         Text(
             value,
             modifier = Modifier.weight(1f),
-            fontSize = 11.sp,
+            fontSize = 9.sp,
             fontWeight = FontWeight.Medium,
             color = SchoolSecondary,
             maxLines = 1,
@@ -724,7 +724,7 @@ private fun SchoolActionButton(
         ) {
             Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(6.dp))
-            Text(text, fontSize = 11.sp, fontWeight = FontWeight.Black, color = content, maxLines = 1)
+            Text(text, fontSize = 10.sp, fontWeight = FontWeight.Black, color = content, maxLines = 1)
         }
     }
 }
